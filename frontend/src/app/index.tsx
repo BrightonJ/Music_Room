@@ -1,33 +1,63 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Colors } from '../constants/theme';
 
-export default function LoginScreen() {
+export default function AuthScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoginMode, setIsLoginMode] = useState(true); // Bascule entre Inscription et Connexion
 
-  // Fonctions factices pour l'instant
-  const handleLogin = () => {
-  console.log("Connexion avec :", email);
-  // Redirection vers la page home
-  router.replace('/home' as any); 
+  const API_URL = 'http://10.171.57.163:3000/api';
+
+  const handleAuth = async () => {
+    // 1. On choisit la bonne route selon le mode
+    const endpoint = isLoginMode ? '/login' : '/register';
+
+    try {
+      // 2. On envoie la requête au Back-end
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      // 3. On gère la réponse
+      if (response.ok) {
+        Alert.alert("Succès", data.message);
+        // Si c'est un login réussi, on va sur la Home !
+        if (isLoginMode) {
+          router.replace('/home' as any);
+        } else {
+          // Si c'est une inscription, on bascule sur le mode connexion
+          setIsLoginMode(true);
+        }
+      } else {
+        // Erreur renvoyée par le serveur (ex: mot de passe incorrect)
+        Alert.alert("Erreur", data.error);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Erreur réseau", "Impossible de joindre le serveur. L'IP est-elle correcte ?");
+    }
   };
-  const handleSocialLogin = (network: string) => console.log("Connexion via", network);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         
-        {/* Titre de l'application */}
         <Text style={styles.title}>Music Room</Text>
-        <Text style={styles.subtitle}>Connectez-vous pour rejoindre l'événement</Text>
+        <Text style={styles.subtitle}>
+          {isLoginMode ? "Connectez-vous pour rejoindre l'événement" : "Créez un compte pour commencer"}
+        </Text>
 
-        {/* Formulaire classique */}
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#888"
+          placeholderTextColor={Colors.dark.textSecondary}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -36,37 +66,24 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Mot de passe"
-          placeholderTextColor="#888"
+          placeholderTextColor={Colors.dark.textSecondary}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        {/* Bouton de connexion manuel */}
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>SE CONNECTER</Text>
+        {/* Bouton principal dynamique */}
+        <TouchableOpacity style={styles.loginButton} onPress={handleAuth}>
+          <Text style={styles.loginButtonText}>
+            {isLoginMode ? "SE CONNECTER" : "S'INSCRIRE"}
+          </Text>
         </TouchableOpacity>
 
-        {/* Mot de passe oublié */}
-        <TouchableOpacity style={styles.forgotPassword}>
-          <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
-        </TouchableOpacity>
-
-        <View style={styles.divider} />
-
-        {/* Boutons réseaux sociaux */}
-        <TouchableOpacity 
-          style={[styles.socialButton, { backgroundColor: '#DB4437' }]} 
-          onPress={() => handleSocialLogin('Google')}
-        >
-          <Text style={styles.socialButtonText}>Continuer avec Google</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.socialButton, { backgroundColor: '#4267B2' }]} 
-          onPress={() => handleSocialLogin('Facebook')}
-        >
-          <Text style={styles.socialButtonText}>Continuer avec Facebook</Text>
+        {/* Bouton pour basculer de mode */}
+        <TouchableOpacity style={styles.forgotPassword} onPress={() => setIsLoginMode(!isLoginMode)}>
+          <Text style={styles.forgotPasswordText}>
+            {isLoginMode ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
+          </Text>
         </TouchableOpacity>
 
       </View>
@@ -74,74 +91,14 @@ export default function LoginScreen() {
   );
 }
 
-// Les styles de la page (façon CSS)
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212', // Fond sombre
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#1DB954', // Vert style Spotify
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#B3B3B3',
-    textAlign: 'center',
-    marginBottom: 40,
-  },
-  input: {
-    backgroundColor: '#282828',
-    color: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 8,
-    marginBottom: 16,
-    fontSize: 16,
-  },
-  loginButton: {
-    backgroundColor: '#1DB954',
-    paddingVertical: 16,
-    borderRadius: 50,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  loginButtonText: {
-    color: '#121212',
-    fontWeight: 'bold',
-    fontSize: 16,
-    letterSpacing: 1,
-  },
-  forgotPassword: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  forgotPasswordText: {
-    color: '#B3B3B3',
-    fontSize: 14,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#282828',
-    marginVertical: 32,
-  },
-  socialButton: {
-    paddingVertical: 14,
-    borderRadius: 50,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  socialButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  }
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  content: { flex: 1, padding: 24, justifyContent: 'center' },
+  title: { fontSize: 42, fontWeight: 'bold', color: Colors.dark.primary, textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: Colors.dark.textSecondary, textAlign: 'center', marginBottom: 40 },
+  input: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 8, marginBottom: 16, fontSize: 16 },
+  loginButton: { backgroundColor: Colors.dark.primary, paddingVertical: 16, borderRadius: 50, alignItems: 'center', marginTop: 8 },
+  loginButtonText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  forgotPassword: { marginTop: 16, alignItems: 'center' },
+  forgotPasswordText: { color: Colors.dark.textSecondary, fontSize: 14 },
 });
