@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, RefreshControl, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { Colors } from '../constants/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
   
-  // États pour stocker les événements et gérer le chargement
   const [events, setEvents] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fonction pour récupérer les events depuis le Back-end
   const fetchEvents = async () => {
     try {
       const response = await fetch('http://10.171.57.163:3000/api/events');
@@ -19,22 +18,44 @@ export default function HomeScreen() {
         setEvents(data);
       }
     } catch (error) {
-      console.error("Erreur de récupération des events :", error);
+      console.error(error);
     }
   };
 
-  // Se lance tout seul à l'ouverture de la page
   useEffect(() => {
-    fetchEvents();
+    const verifyAuth = async () => {
+      // 1. On cherche le token
+      let token = null;
+      if (Platform.OS === 'web') {
+        token = localStorage.getItem('userToken');
+      } else {
+        token = await SecureStore.getItemAsync('userToken');
+      }
+
+      // 2. LE VIDEUR : Si pas de token, on le jette dehors ! 🛑
+      if (!token) {
+        router.replace('/' as any);
+        return; // On arrête tout
+      }
+
+      // 3. Si tout est bon, on charge les événements
+      fetchEvents();
+    };
+
+    verifyAuth();
   }, []);
 
-  // Gère l'animation "Tirer pour rafraîchir"
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchEvents().then(() => setRefreshing(false));
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem('userToken');
+    } else {
+      await SecureStore.deleteItemAsync('userToken');
+    }
     router.replace('/' as any);
   };
 
@@ -55,18 +76,16 @@ export default function HomeScreen() {
       >
         <Text style={styles.sectionTitle}>Autour de moi (Public)</Text>
         
-        {/* Si aucun événement n'existe */}
         {events.length === 0 ? (
           <Text style={styles.emptyText}>Aucune Room active pour le moment. Créez-en une !</Text>
         ) : (
-          /* Boucle pour afficher chaque événement de la base de données */
           events.map((event) => (
             <View key={event.id} style={styles.card}>
               <Text style={styles.cardTitle}>{event.name}</Text>
               <Text style={styles.cardSubtitle}>
                 {event.is_private ? '🔒 Privé' : '🌍 Public'} {event.location_restricted ? ' • 📍 Proximité requise' : ''}
               </Text>
-              <TouchableOpacity style={styles.joinButton} onPress={() => router.push('/room' as any)}>
+              <TouchableOpacity style={styles.joinButton} onPress={() => router.push({ pathname: '/room', params: { id: event.id } } as any)}>
                 <Text style={styles.joinButtonText}>Rejoindre</Text>
               </TouchableOpacity>
             </View>
@@ -74,7 +93,6 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* Bouton Flottant pour créer une Room */}
       <TouchableOpacity style={styles.fab} onPress={() => router.push('/create' as any)}>
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>

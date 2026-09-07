@@ -15,4 +15,4 @@ services:
       - pgdata:/var/lib/postgresql/data
 
 volumes:
-  pgdata:cd 
+  pgdata: {}

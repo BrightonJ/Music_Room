@@ -1,78 +1,53 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, FlatList } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { io, Socket } from 'socket.io-client';
 import { Colors } from '../constants/theme';
 
 export default function RoomScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams(); 
   
-  const [isHost, setIsHost] = useState(true);
-  const [queue, setQueue] = useState([
-    { id: '1', title: 'Bohemian Rhapsody', artist: 'Queen', votes: 12 },
-    { id: '2', title: 'Daft Punk', artist: 'Get Lucky', votes: 8 },
-    { id: '3', title: 'Blinding Lights', artist: 'The Weeknd', votes: 3 },
-  ]);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const SOCKET_URL = 'http://10.171.57.163:3000'; // ⚠️ Ton adresse IP
+
+  useEffect(() => {
+    const newSocket = io(SOCKET_URL);
+    setSocket(newSocket);
+
+    // Quand on se connecte, on dit au serveur qu'on rejoint CETTE room
+    newSocket.on('connect', () => {
+      newSocket.emit('join_room', id);
+    });
+
+    // Quand on quitte la page, on coupe la connexion pour économiser la batterie
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [id]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.leaveText}>Quitter</Text>
+          <Text style={styles.backText}>← Retour</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>🎵 Soirée de Brighton</Text>
-        {isHost ? (
-          <TouchableOpacity>
-            <Text style={styles.delegateText}>Droits</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 50 }} />
-        )}
+        <Text style={styles.headerTitle}>Room #{id}</Text>
+        <TouchableOpacity>
+          <Text style={styles.settingsText}>⚙️</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.nowPlaying}>
-        <View style={styles.albumArtPlaceholder}>
-          <Text style={styles.albumArtText}>CD</Text>
+      <View style={styles.content}>
+        <View style={styles.nowPlaying}>
+          <Text style={styles.nowPlayingLabel}>EN COURS DE LECTURE</Text>
+          <Text style={styles.nowPlayingTitle}>Waiting for tracks...</Text>
         </View>
-        <Text style={styles.trackTitle}>Shape of You</Text>
-        <Text style={styles.trackArtist}>Ed Sheeran</Text>
 
-        {isHost && (
-          <View style={styles.controls}>
-            <TouchableOpacity style={styles.controlButton}>
-              <Text style={styles.controlText}>⏸ Pause</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.controlButton}>
-              <Text style={styles.controlText}>⏭ Suivant</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <TouchableOpacity style={styles.proposeButton}>
+          <Text style={styles.proposeButtonText}>+ PROPOSER UN TITRE</Text>
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.queueSection}>
-        <Text style={styles.queueTitle}>Prochains morceaux</Text>
-        
-        <ScrollView style={styles.queueList}>
-          {queue.map((track) => (
-            <View key={track.id} style={styles.trackItem}>
-              <View style={styles.trackInfo}>
-                <Text style={styles.trackName}>{track.title}</Text>
-                <Text style={styles.trackArtistSmall}>{track.artist}</Text>
-              </View>
-              
-              <View style={styles.voteSection}>
-                <Text style={styles.voteCount}>{track.votes}</Text>
-                <TouchableOpacity style={styles.voteButton}>
-                  <Text style={styles.voteButtonText}>▲</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      <TouchableOpacity style={styles.addTrackButton}>
-        <Text style={styles.addTrackText}>+ PROPOSER UN MORCEAU</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -80,33 +55,13 @@ export default function RoomScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text },
-  leaveText: { color: Colors.dark.danger, fontSize: 16 },
-  delegateText: { color: Colors.dark.primary, fontSize: 16, fontWeight: 'bold' },
-  
-  nowPlaying: { alignItems: 'center', padding: 30, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
-  albumArtPlaceholder: { width: 150, height: 150, backgroundColor: Colors.dark.backgroundElement, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  albumArtText: { color: Colors.dark.textSecondary, fontSize: 40, fontWeight: 'bold' },
-  trackTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 5 },
-  trackArtist: { fontSize: 18, color: Colors.dark.textSecondary, marginBottom: 20 },
-  
-  controls: { flexDirection: 'row', gap: 20 },
-  controlButton: { backgroundColor: Colors.dark.text, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 50 },
-  controlText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16 },
-  
-  queueSection: { flex: 1, padding: 20 },
-  queueTitle: { color: Colors.dark.text, fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  queueList: { flex: 1 },
-  trackItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.dark.backgroundElement, padding: 15, borderRadius: 8, marginBottom: 10 },
-  trackInfo: { flex: 1 },
-  trackName: { color: Colors.dark.text, fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  trackArtistSmall: { color: Colors.dark.textSecondary, fontSize: 14 },
-  
-  voteSection: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  voteCount: { color: Colors.dark.primary, fontSize: 18, fontWeight: 'bold' },
-  voteButton: { backgroundColor: Colors.dark.backgroundSelected, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  voteButtonText: { color: Colors.dark.primary, fontSize: 18 },
-  
-  addTrackButton: { backgroundColor: Colors.dark.primary, margin: 20, paddingVertical: 16, borderRadius: 50, alignItems: 'center' },
-  addTrackText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
+  backText: { color: Colors.dark.primary, fontSize: 16 },
+  settingsText: { fontSize: 20 },
+  content: { padding: 20, flex: 1 },
+  nowPlaying: { backgroundColor: Colors.dark.backgroundElement, padding: 20, borderRadius: 12, alignItems: 'center', marginBottom: 30 },
+  nowPlayingLabel: { color: Colors.dark.textSecondary, fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginBottom: 8 },
+  nowPlayingTitle: { color: Colors.dark.primary, fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
+  proposeButton: { backgroundColor: Colors.dark.backgroundSelected, padding: 15, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: Colors.dark.primary, borderStyle: 'dashed' },
+  proposeButtonText: { color: Colors.dark.primary, fontWeight: 'bold' },
 });
