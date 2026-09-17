@@ -119,6 +119,28 @@ app.get('/api/events', async (req, res) => {
     }
 });
 
+app.post('/api/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Aucun compte n'est associé à cette adresse email." });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetLink = `http://localhost:${PORT}/api/reset-password/${resetToken}`;
+        
+        console.log(`\n📧 [EMAIL SIMULÉ pour ${email}]`);
+        console.log(`Objet : Réinitialisation de votre mot de passe Music Room`);
+        console.log(`Cliquez sur ce lien pour créer un nouveau mot de passe : ${resetLink}\n`);
+
+        res.status(200).json({ message: "Si cet email existe, un lien de réinitialisation a été envoyé." });
+    } catch (err) {
+        res.status(500).json({ error: "Erreur serveur" });
+    }
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
