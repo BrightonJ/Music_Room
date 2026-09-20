@@ -39,13 +39,14 @@ const createTables = async () => {
     );
   `;
 
-  const tracksTable = `
+const tracksTable = `
     CREATE TABLE tracks (
       id SERIAL PRIMARY KEY,
       event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       title VARCHAR(255) NOT NULL,
       artist VARCHAR(255) NOT NULL,
+      cover_url VARCHAR(255), -- NOUVELLE COLONNE POUR LA POCHETTE
       votes INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );

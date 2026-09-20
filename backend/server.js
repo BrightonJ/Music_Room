@@ -9,6 +9,7 @@ const { Server } = require('socket.io');
 const crypto = require('crypto');
 
 const app = express();
+const roomsQueue = {};
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -152,9 +153,39 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log(`📱 Connecté : ${socket.id}`);
 
-    socket.on('join_room', (roomId) => {
+    // 1. REJOINDRE LA ROOM & CHARGER LA PLAYLIST BDD
+    socket.on('join_room', async (roomId) => {
         socket.join(roomId);
         console.log(`👤 Rejoint la room : ${roomId}`);
+        try {
+            const result = await db.query('SELECT * FROM tracks WHERE event_id = $1 ORDER BY votes DESC, created_at ASC', [roomId]);
+            socket.emit('update_queue', result.rows);
+        } catch (err) { console.error(err); }
+    });
+
+    // 2. AJOUTER UNE MUSIQUE & DIFFUSER
+    socket.on('add_track', async (trackData) => {
+        const { roomId, title, artist, coverUrl } = trackData;
+        const mockUserId = 1; // Temporaire : on reliera ça au token JWT plus tard
+        
+        try {
+            await db.query(
+                'INSERT INTO tracks (event_id, user_id, title, artist, cover_url) VALUES ($1, $2, $3, $4, $5)',
+                [roomId, mockUserId, title, artist, coverUrl]
+            );
+            // On récupère la liste mise à jour
+            const result = await db.query('SELECT * FROM tracks WHERE event_id = $1 ORDER BY votes DESC, created_at ASC', [roomId]);
+            io.to(roomId).emit('update_queue', result.rows); // Diffuse à tous les téléphones
+        } catch (err) { console.error(err); }
+    });
+
+    // 3. LE SYSTÈME DE VOTE
+    socket.on('vote_track', async ({ trackId, roomId, voteValue }) => {
+        try {
+            await db.query('UPDATE tracks SET votes = votes + $1 WHERE id = $2', [voteValue, trackId]);
+            const result = await db.query('SELECT * FROM tracks WHERE event_id = $1 ORDER BY votes DESC, created_at ASC', [roomId]);
+            io.to(roomId).emit('update_queue', result.rows);
+        } catch (err) { console.error(err); }
     });
 
     socket.on('disconnect', () => {

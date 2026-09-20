@@ -26,7 +26,7 @@ export default function AuthScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalMessage, setGlobalMessage] = useState({ type: '', text: '' });
 
-  const API_URL = 'http://10.171.57.163:3000/api'; // ⚠️ VÉRIFIE TON IP
+  const API_URL = 'http://10.171.58.127:3000/api'; // ⚠️ VÉRIFIE TON IP
 
   const [requestG, responseG, promptAsyncG] = Google.useAuthRequest({
     webClientId: 'TON_GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com',
@@ -35,14 +35,6 @@ export default function AuthScreen() {
   const [requestF, responseF, promptAsyncF] = Facebook.useAuthRequest({
     clientId: 'TON_FACEBOOK_APP_ID',
   });
-
-  useEffect(() => {
-    const checkToken = async () => {
-      let token = Platform.OS === 'web' ? localStorage.getItem('userToken') : await SecureStore.getItemAsync('userToken');
-      if (token) router.replace('/home' as any);
-    };
-    checkToken();
-  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -192,30 +184,30 @@ export default function AuthScreen() {
             <View style={styles.row}>
               <View style={styles.halfInputContainer}>
                 <TextInput 
-                  style={[styles.input, errors.firstName && styles.inputError]} 
+                  style={[styles.input, errors.firstName ? styles.inputError : null]} 
                   placeholder="Prénom" 
                   placeholderTextColor={Colors.dark.textSecondary} 
                   value={firstName} 
                   onChangeText={(t) => { setFirstName(t); setErrors({...errors, firstName: ''}); }} 
                 />
-                {errors.firstName && <Text style={styles.inlineError}>{errors.firstName}</Text>}
+                {errors.firstName ? <Text style={styles.inlineError}>{errors.firstName}</Text> : null}
               </View>
               <View style={styles.halfInputContainer}>
                 <TextInput 
-                  style={[styles.input, errors.lastName && styles.inputError]} 
+                  style={[styles.input, errors.lastName ? styles.inputError : null]} 
                   placeholder="Nom" 
                   placeholderTextColor={Colors.dark.textSecondary} 
                   value={lastName} 
                   onChangeText={(t) => { setLastName(t); setErrors({...errors, lastName: ''}); }} 
                 />
-                {errors.lastName && <Text style={styles.inlineError}>{errors.lastName}</Text>}
+                {errors.lastName ? <Text style={styles.inlineError}>{errors.lastName}</Text> : null}
               </View>
             </View>
 
             {Platform.OS === 'web' ? (
               <View style={styles.inputWrapper}>
                 <TextInput 
-                  style={[styles.input, errors.birthDate && styles.inputError]} 
+                  style={[styles.input, errors.birthDate ? styles.inputError : null]} 
                   placeholder="Date de naissance (JJ-MM-AAAA)" 
                   placeholderTextColor={Colors.dark.textSecondary} 
                   value={birthDateWeb} 
@@ -223,19 +215,19 @@ export default function AuthScreen() {
                   maxLength={10}
                   keyboardType="number-pad"
                 />
-                {errors.birthDate && <Text style={styles.inlineError}>{errors.birthDate}</Text>}
+                {errors.birthDate ? <Text style={styles.inlineError}>{errors.birthDate}</Text> : null}
               </View>
             ) : (
               <View style={styles.inputWrapper}>
                 <TouchableOpacity 
-                  style={[styles.input, errors.birthDate && styles.inputError, { justifyContent: 'center' }]} 
+                  style={[styles.input, errors.birthDate ? styles.inputError : null, { justifyContent: 'center' }]} 
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Text style={{ color: birthDate ? Colors.dark.text : Colors.dark.textSecondary, fontSize: 16 }}>
                     {birthDate ? birthDate.toLocaleDateString('fr-FR') : "Date de naissance"}
                   </Text>
                 </TouchableOpacity>
-                {errors.birthDate && <Text style={styles.inlineError}>{errors.birthDate}</Text>}
+                {errors.birthDate ? <Text style={styles.inlineError}>{errors.birthDate}</Text> : null}
 
                 {showDatePicker && (
                   <DateTimePicker
@@ -259,7 +251,7 @@ export default function AuthScreen() {
 
         <View style={styles.inputWrapper}>
           <TextInput 
-            style={[styles.input, errors.email && styles.inputError]} 
+            style={[styles.input, errors.email ? styles.inputError : null]} 
             placeholder="Adresse Email" 
             placeholderTextColor={Colors.dark.textSecondary} 
             value={email} 
@@ -267,32 +259,32 @@ export default function AuthScreen() {
             keyboardType="email-address" 
             autoCapitalize="none" 
           />
-          {errors.email && <Text style={styles.inlineError}>{errors.email}</Text>}
+          {errors.email ? <Text style={styles.inlineError}>{errors.email}</Text> : null}
         </View>
 
         <View style={styles.inputWrapper}>
           <TextInput 
-            style={[styles.input, errors.password && styles.inputError]} 
+            style={[styles.input, errors.password ? styles.inputError : null]} 
             placeholder="Mot de passe" 
             placeholderTextColor={Colors.dark.textSecondary} 
             value={password} 
             onChangeText={(t) => { setPassword(t); setErrors({...errors, password: ''}); }} 
             secureTextEntry 
           />
-          {errors.password && <Text style={styles.inlineError}>{errors.password}</Text>}
+          {errors.password ? <Text style={styles.inlineError}>{errors.password}</Text> : null}
         </View>
 
         {!isLoginMode && (
           <View style={styles.inputWrapper}>
             <TextInput 
-              style={[styles.input, errors.confirmPassword && styles.inputError]} 
+              style={[styles.input, errors.confirmPassword ? styles.inputError : null]} 
               placeholder="Confirmer le mot de passe" 
               placeholderTextColor={Colors.dark.textSecondary} 
               value={confirmPassword} 
               onChangeText={(t) => { setConfirmPassword(t); setErrors({...errors, confirmPassword: ''}); }} 
               secureTextEntry 
             />
-            {errors.confirmPassword && <Text style={styles.inlineError}>{errors.confirmPassword}</Text>}
+            {errors.confirmPassword ? <Text style={styles.inlineError}>{errors.confirmPassword}</Text> : null}
           </View>
         )}
 

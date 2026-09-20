@@ -12,7 +12,7 @@ export default function CreateEventScreen() {
 
   const handleCreate = async () => {
     try {
-      const response = await fetch('http://10.171.57.163:3000/api/events', {
+      const response = await fetch('http://10.171.58.127:3000/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -26,7 +26,8 @@ export default function CreateEventScreen() {
 
       if (response.ok) {
         Alert.alert("Succès", data.message);
-        router.back();
+        // On remplace l'écran actuel par celui de la Room qu'on vient de créer
+        router.replace({ pathname: '/room', params: { id: data.event.id } } as any);
       } else {
         Alert.alert("Erreur", data.error);
       }

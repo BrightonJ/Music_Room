@@ -1,0 +1,38 @@
+frontend
+├── expo-env.d.ts
+├── scripts
+│   └── reset-project.js
+└── src
+    ├── app
+    │   ├── create.tsx
+    │   ├── home.tsx
+    │   ├── index.tsx
+    │   ├── _layout.tsx
+    │   └── room.tsx
+    ├── components
+    │   ├── animated-icon.module.css
+    │   ├── animated-icon.tsx
+    │   ├── animated-icon.web.tsx
+    │   ├── app-tabs.tsx
+    │   ├── app-tabs.web.tsx
+    │   ├── external-link.tsx
+    │   ├── hint-row.tsx
+    │   ├── themed-text.tsx
+    │   ├── themed-view.tsx
+    │   ├── ui
+    │   │   └── collapsible.tsx
+    │   └── web-badge.tsx
+    ├── constants
+    │   └── theme.ts
+    ├── global.css
+    └── hooks
+        ├── use-color-scheme.ts
+        ├── use-color-scheme.web.ts
+        └── use-theme.ts
+backend
+├── config
+│   └── db.js
+├── init.js
+└── server.js
+
+10 directories, 26 files
