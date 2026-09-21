@@ -40,45 +40,45 @@ export default function AuthScreen() {
     setGlobalMessage({ type: '', text: '' });
 
     if (isLoginMode) {
-      if (!email) newErrors.email = "Email requis";
-      if (!password) newErrors.password = "Mot de passe requis";
+      if (!email) newErrors.email = "Email required";
+      if (!password) newErrors.password = "Password required";
       setErrors(newErrors);
       return Object.keys(newErrors).length === 0;
     }
 
-    if (!firstName) newErrors.firstName = "Prénom requis";
-    if (!lastName) newErrors.lastName = "Nom requis";
+    if (!firstName) newErrors.firstName = "First name required";
+    if (!lastName) newErrors.lastName = "Last name required";
     
     if (Platform.OS === 'web') {
-      if (!birthDateWeb || birthDateWeb.length !== 10) newErrors.birthDate = "Date requise (JJ-MM-AAAA)";
+      if (!birthDateWeb || birthDateWeb.length !== 10) newErrors.birthDate = "Date required (DD-MM-YYYY)";
     } else {
-      if (!birthDate) newErrors.birthDate = "Date requise";
+      if (!birthDate) newErrors.birthDate = "Date required";
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
-      newErrors.email = "Email requis";
+      newErrors.email = "Email required";
     } else if (!emailRegex.test(email)) {
-      newErrors.email = "Format d'email invalide";
+      newErrors.email = "Invalid email format";
     }
 
     const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!\%*?&]{8,}$/;
     if (!password) {
-      newErrors.password = "Mot de passe requis";
+      newErrors.password = "Password required";
     } else if (!passRegex.test(password)) {
-      newErrors.password = "8 car. min, 1 maj, 1 min, 1 chiffre, 1 car. spécial";
+      newErrors.password = "8 chars min, 1 uppercase, 1 lowercase, 1 digit, 1 special char";
     }
 
     if (!confirmPassword) {
-      newErrors.confirmPassword = "Confirmation requise";
+      newErrors.confirmPassword = "Confirmation required";
     } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+      newErrors.confirmPassword = "Passwords do not match";
     }
 
     setErrors(newErrors);
     
     if (Object.keys(newErrors).length > 0) {
-      setGlobalMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' });
+      setGlobalMessage({ type: 'error', text: 'Please fix the fields highlighted in red.' });
     }
 
     return Object.keys(newErrors).length === 0;
@@ -125,17 +125,17 @@ export default function AuthScreen() {
           setConfirmPassword('');
         }
       } else {
-        setGlobalMessage({ type: 'error', text: data.error || "Une erreur est survenue." });
+        setGlobalMessage({ type: 'error', text: data.error || "An error occurred." });
       }
     } catch (error) {
-      setGlobalMessage({ type: 'error', text: "Impossible de joindre le serveur." });
+      setGlobalMessage({ type: 'error', text: "Unable to reach the server." });
     }
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
-      setErrors({ email: "Veuillez saisir votre email" });
-      setGlobalMessage({ type: 'error', text: "Renseignez votre email pour réinitialiser le mot de passe." });
+      setErrors({ email: "Please enter your email" });
+      setGlobalMessage({ type: 'error', text: "Enter your email to reset your password." });
       return;
     }
     try {
@@ -146,12 +146,12 @@ export default function AuthScreen() {
       });
       const data = await response.json();
       if (response.ok) {
-        setGlobalMessage({ type: 'success', text: "Email de réinitialisation envoyé." });
+        setGlobalMessage({ type: 'success', text: "Password reset email sent." });
       } else {
-        setGlobalMessage({ type: 'error', text: data.error || "Erreur lors de la réinitialisation." });
+        setGlobalMessage({ type: 'error', text: data.error || "Error while resetting the password." });
       }
     } catch (error) {
-      setGlobalMessage({ type: 'error', text: "Impossible de joindre le serveur." });
+      setGlobalMessage({ type: 'error', text: "Unable to reach the server." });
     }
   };
 
@@ -169,7 +169,7 @@ export default function AuthScreen() {
         
         <Text style={styles.title}>Music Room</Text>
         <Text style={styles.subtitle}>
-          {isLoginMode ? "Connectez-vous pour rejoindre l'événement" : "Créez un profil complet et sécurisé"}
+          {isLoginMode ? "Log in to join the event" : "Create a complete and secure profile"}
         </Text>
 
         {globalMessage.text ? (
@@ -184,7 +184,7 @@ export default function AuthScreen() {
               <View style={styles.halfInputContainer}>
                 <TextInput 
                   style={[styles.input, errors.firstName ? styles.inputError : null]} 
-                  placeholder="Prénom" 
+                  placeholder="First name" 
                   placeholderTextColor={Colors.dark.textSecondary} 
                   value={firstName} 
                   onChangeText={(t) => { setFirstName(t); setErrors({...errors, firstName: ''}); }} 
@@ -194,7 +194,7 @@ export default function AuthScreen() {
               <View style={styles.halfInputContainer}>
                 <TextInput 
                   style={[styles.input, errors.lastName ? styles.inputError : null]} 
-                  placeholder="Nom" 
+                  placeholder="Last name" 
                   placeholderTextColor={Colors.dark.textSecondary} 
                   value={lastName} 
                   onChangeText={(t) => { setLastName(t); setErrors({...errors, lastName: ''}); }} 
@@ -207,7 +207,7 @@ export default function AuthScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput 
                   style={[styles.input, errors.birthDate ? styles.inputError : null]} 
-                  placeholder="Date de naissance (JJ-MM-AAAA)" 
+                  placeholder="Date of birth (DD-MM-YYYY)" 
                   placeholderTextColor={Colors.dark.textSecondary} 
                   value={birthDateWeb} 
                   onChangeText={(t) => { handleDateChangeWeb(t); setErrors({...errors, birthDate: ''}); }} 
@@ -223,7 +223,7 @@ export default function AuthScreen() {
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Text style={{ color: birthDate ? Colors.dark.text : Colors.dark.textSecondary, fontSize: 16 }}>
-                    {birthDate ? birthDate.toLocaleDateString('fr-FR') : "Date de naissance"}
+                    {birthDate ? birthDate.toLocaleDateString('en-GB') : "Date of birth"}
                   </Text>
                 </TouchableOpacity>
                 {errors.birthDate ? <Text style={styles.inlineError}>{errors.birthDate}</Text> : null}
@@ -251,7 +251,7 @@ export default function AuthScreen() {
         <View style={styles.inputWrapper}>
           <TextInput 
             style={[styles.input, errors.email ? styles.inputError : null]} 
-            placeholder="Adresse Email" 
+            placeholder="Email address" 
             placeholderTextColor={Colors.dark.textSecondary} 
             value={email} 
             onChangeText={(t) => { setEmail(t); setErrors({...errors, email: ''}); }} 
@@ -264,7 +264,7 @@ export default function AuthScreen() {
         <View style={styles.inputWrapper}>
           <TextInput 
             style={[styles.input, errors.password ? styles.inputError : null]} 
-            placeholder="Mot de passe" 
+            placeholder="Password" 
             placeholderTextColor={Colors.dark.textSecondary} 
             value={password} 
             onChangeText={(t) => { setPassword(t); setErrors({...errors, password: ''}); }} 
@@ -277,7 +277,7 @@ export default function AuthScreen() {
           <View style={styles.inputWrapper}>
             <TextInput 
               style={[styles.input, errors.confirmPassword ? styles.inputError : null]} 
-              placeholder="Confirmer le mot de passe" 
+              placeholder="Confirm password" 
               placeholderTextColor={Colors.dark.textSecondary} 
               value={confirmPassword} 
               onChangeText={(t) => { setConfirmPassword(t); setErrors({...errors, confirmPassword: ''}); }} 
@@ -289,35 +289,35 @@ export default function AuthScreen() {
 
         {isLoginMode && (
           <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordLink}>
-            <Text style={styles.forgotPasswordTextBtn}>Mot de passe oublié ?</Text>
+            <Text style={styles.forgotPasswordTextBtn}>Forgot password?</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity style={styles.loginButton} onPress={handleAuth}>
-          <Text style={styles.loginButtonText}>{isLoginMode ? "SE CONNECTER" : "CRÉER MON COMPTE"}</Text>
+          <Text style={styles.loginButtonText}>{isLoginMode ? "LOG IN" : "CREATE MY ACCOUNT"}</Text>
         </TouchableOpacity>
 
         <View style={styles.dividerContainer}>
           <View style={styles.divider} />
-          <Text style={styles.dividerText}>OU</Text>
+          <Text style={styles.dividerText}>OR</Text>
           <View style={styles.divider} />
         </View>
 
         <TouchableOpacity style={[styles.socialButton, {backgroundColor: '#DB4437'}]} onPress={() => promptAsyncG()}>
           <Text style={styles.socialButtonText}>
-            {isLoginMode ? "Se connecter avec Google" : "S'inscrire avec Google"}
+            {isLoginMode ? "Log in with Google" : "Sign up with Google"}
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={[styles.socialButton, {backgroundColor: '#4267B2'}]} onPress={() => promptAsyncF()}>
           <Text style={styles.socialButtonText}>
-            {isLoginMode ? "Se connecter avec Facebook" : "S'inscrire avec Facebook"}
+            {isLoginMode ? "Log in with Facebook" : "Sign up with Facebook"}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.forgotPassword} onPress={() => { setIsLoginMode(!isLoginMode); setErrors({}); setGlobalMessage({ type: '', text: '' }); }}>
           <Text style={styles.forgotPasswordText}>
-            {isLoginMode ? "Nouveau ici ? Créer un compte" : "Déjà un compte ? Se connecter"}
+            {isLoginMode ? "New here? Create an account" : "Already have an account? Log in"}
           </Text>
         </TouchableOpacity>
 

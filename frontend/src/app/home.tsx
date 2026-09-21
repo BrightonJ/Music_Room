@@ -62,9 +62,9 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Événements</Text>
+        <Text style={styles.headerTitle}>Events</Text>
         <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logoutText}>Déconnexion</Text>
+          <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
       </View>
 
@@ -74,19 +74,19 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.primary} />
         }
       >
-        <Text style={styles.sectionTitle}>Autour de moi (Public)</Text>
+        <Text style={styles.sectionTitle}>Around me (Public)</Text>
         
         {events.length === 0 ? (
-          <Text style={styles.emptyText}>Aucune Room active pour le moment. Créez-en une !</Text>
+          <Text style={styles.emptyText}>No active room right now. Create one!</Text>
         ) : (
           events.map((event) => (
             <View key={event.id} style={styles.card}>
               <Text style={styles.cardTitle}>{event.name}</Text>
               <Text style={styles.cardSubtitle}>
-                {event.is_private ? '🔒 Privé' : '🌍 Public'} {event.location_restricted ? ' • 📍 Proximité requise' : ''}
+                {event.is_private ? '🔒 Private' : '🌍 Public'} {event.location_restricted ? ' • 📍 Proximity required' : ''}
               </Text>
               <TouchableOpacity style={styles.joinButton} onPress={() => router.push({ pathname: '/room', params: { id: event.id } } as any)}>
-                <Text style={styles.joinButtonText}>Rejoindre</Text>
+                <Text style={styles.joinButtonText}>Join</Text>
               </TouchableOpacity>
             </View>
           ))
