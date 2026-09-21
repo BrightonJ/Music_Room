@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Ref
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { Colors } from '../constants/theme';
+import { API_URL } from '@/constants/config';
 
 
 export default function HomeScreen() {
@@ -13,7 +14,7 @@ export default function HomeScreen() {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch('http://10.171.58.127:3000/api/events');
+      const response = await fetch(`${API_URL}/events`);
       const data = await response.json();
       if (response.ok) {
         setEvents(data);

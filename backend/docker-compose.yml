@@ -6,9 +6,9 @@ services:
     container_name: music_room_db
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: rootpassword
-      POSTGRES_DB: musicroom
+      POSTGRES_USER: ${POSTGRES_USER:?copy backend/.env.example to backend/.env first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy backend/.env.example to backend/.env first}
+      POSTGRES_DB: ${POSTGRES_DB:?copy backend/.env.example to backend/.env first}
     ports:
       - "5432:5432"
     volumes:
