@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, Flat
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { io, Socket } from 'socket.io-client';
 import { Colors } from '../constants/theme';
+import { SERVER_URL } from '@/constants/config';
 
 export default function RoomScreen() {
   const router = useRouter();
@@ -13,8 +14,7 @@ export default function RoomScreen() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [queue, setQueue] = useState<any[]>([]);
 
-  // ⚠️ Remplace par 'localhost' ou ton IP actuelle (10.171.58.127)
-  const SOCKET_URL = 'http://10.171.58.127:3000'; 
+  const SOCKET_URL = SERVER_URL;
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL);

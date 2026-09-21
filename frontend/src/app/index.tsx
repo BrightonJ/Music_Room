@@ -7,6 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as Facebook from 'expo-auth-session/providers/facebook';
 import { Colors } from '../constants/theme';
+import { API_URL } from '@/constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -25,8 +26,6 @@ export default function AuthScreen() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalMessage, setGlobalMessage] = useState({ type: '', text: '' });
-
-  const API_URL = 'http://10.171.58.127:3000/api'; // ⚠️ VÉRIFIE TON IP
 
   const [requestG, responseG, promptAsyncG] = Google.useAuthRequest({
     webClientId: 'TON_GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com',

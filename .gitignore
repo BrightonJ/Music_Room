@@ -11,3 +11,12 @@ frontend/.env
 # Ignorer les fichiers générés par le système (Mac/Windows)
 .DS_Store
 Thumbs.db
+# Dumps de code / arborescence générés à la main
+code_bundle.txt
+code_complet.txt
+file.txt
+folder.txt
+
+# Expo
+.expo/
+frontend/.expo/

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Switch, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/theme';
+import { API_URL } from '@/constants/config';
 
 export default function CreateEventScreen() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function CreateEventScreen() {
 
   const handleCreate = async () => {
     try {
-      const response = await fetch('http://10.171.58.127:3000/api/events', {
+      const response = await fetch(`${API_URL}/events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
