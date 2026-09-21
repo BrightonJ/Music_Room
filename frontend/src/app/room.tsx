@@ -44,7 +44,7 @@ export default function RoomScreen() {
       const data = await response.json();
       setSearchResults(data.results);
     } catch (error) {
-      console.error("Erreur API iTunes :", error);
+      console.error("iTunes API error:", error);
     }
   };
 
@@ -82,7 +82,7 @@ export default function RoomScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.replace('/home' as any)}>
-            <Text style={styles.backText}>← Quitter</Text>
+            <Text style={styles.backText}>← Leave</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Room #{id}</Text>
           <TouchableOpacity><Text style={styles.settingsText}>⚙️</Text></TouchableOpacity>
@@ -91,7 +91,7 @@ export default function RoomScreen() {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Rechercher un titre..."
+            placeholder="Search for a track..."
             placeholderTextColor={Colors.dark.textSecondary}
             value={searchQuery}
             onChangeText={handleSearch}
@@ -108,9 +108,9 @@ export default function RoomScreen() {
             />
           ) : (
             <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>File d'attente</Text>
+              <Text style={styles.sectionTitle}>Queue</Text>
               {queue.length === 0 ? (
-                <Text style={styles.emptyQueueText}>La playlist est vide. Cherchez un son !</Text>
+                <Text style={styles.emptyQueueText}>The playlist is empty. Search for a track!</Text>
               ) : (
                 <FlatList
                   data={queue}

@@ -26,15 +26,15 @@ export default function CreateEventScreen() {
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert("Succès", data.message);
-        // On remplace l'écran actuel par celui de la Room qu'on vient de créer
+        Alert.alert("Success", data.message);
+        // Replace the current screen with the room we just created
         router.replace({ pathname: '/room', params: { id: data.event.id } } as any);
       } else {
-        Alert.alert("Erreur", data.error);
+        Alert.alert("Error", data.error);
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Erreur", "Impossible de joindre le serveur");
+      Alert.alert("Error", "Unable to reach the server");
     }
   };
 
@@ -42,17 +42,17 @@ export default function CreateEventScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.cancelText}>Annuler</Text>
+          <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nouvelle Room</Text>
+        <Text style={styles.headerTitle}>New Room</Text>
         <View style={{ width: 60 }} />
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.label}>Nom de l'événement</Text>
+        <Text style={styles.label}>Event name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: Soirée de Brighton"
+          placeholder="E.g. Brighton party"
           placeholderTextColor={Colors.dark.textSecondary}
           value={eventName}
           onChangeText={setEventName}
@@ -60,8 +60,8 @@ export default function CreateEventScreen() {
 
         <View style={styles.switchRow}>
           <View>
-            <Text style={styles.switchLabel}>Événement Privé</Text>
-            <Text style={styles.switchSubLabel}>Sur invitation uniquement</Text>
+            <Text style={styles.switchLabel}>Private event</Text>
+            <Text style={styles.switchSubLabel}>Invitation only</Text>
           </View>
           <Switch
             trackColor={{ false: Colors.dark.backgroundSelected, true: Colors.dark.primary }}
@@ -73,8 +73,8 @@ export default function CreateEventScreen() {
 
         <View style={styles.switchRow}>
           <View>
-            <Text style={styles.switchLabel}>Licence : Proximité</Text>
-            <Text style={styles.switchSubLabel}>Faut-il être sur place pour voter ?</Text>
+            <Text style={styles.switchLabel}>License: Proximity</Text>
+            <Text style={styles.switchSubLabel}>Must users be on site to vote?</Text>
           </View>
           <Switch
             trackColor={{ false: Colors.dark.backgroundSelected, true: Colors.dark.primary }}
@@ -89,7 +89,7 @@ export default function CreateEventScreen() {
           onPress={handleCreate}
           disabled={!eventName}
         >
-          <Text style={styles.createButtonText}>CRÉER LA ROOM</Text>
+          <Text style={styles.createButtonText}>CREATE ROOM</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
