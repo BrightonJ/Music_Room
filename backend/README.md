@@ -28,7 +28,7 @@ Earlier versions of `docker-compose.yml` hardcoded the credentials `admin` / `ro
 The `pgdata` volume keeps the credentials it was created with, so changing `.env` alone does not
 update them and the API will fail to connect. Either:
 
-- keep the old credentials in your `.env` (`POSTGRES_USER=admin`, `POSTGRES_PASSWORD=rootpassword`), or
+- keep the old credentials in your `.env` (`POSTGRES_USER=admin`, `POSTGRES_PASSWORD=rootpassword`, `POSTGRES_DB=musicroom`), or
 - reset the volume (**deletes all local data**; `node init.js` recreates the tables):
 
   ```bash
