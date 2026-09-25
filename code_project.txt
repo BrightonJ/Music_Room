@@ -1,0 +1,1204 @@
+=== FILE: backend/package.json ===
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.0.1",
+    "pg": "^8.23.0",
+    "socket.io": "^4.8.3"
+  }
+}
+
+
+=== FILE: backend/init.js ===
+const pool = require('./config/db');
+
+const createTables = async () => {
+  // ⚠️ DROP EVERYTHING TO START FROM SCRATCH (dev only!)
+  const dropQuery = `DROP TABLE IF EXISTS tracks, events, users CASCADE;`;
+
+  // NEW USERS TABLE (secure & complete version)
+  const usersTable = `
+    CREATE TABLE users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255), -- Optional for Google/Facebook
+      first_name VARCHAR(100),
+      last_name VARCHAR(100),
+      birth_date DATE,
+      
+      -- Email verification system
+      is_verified BOOLEAN DEFAULT false,
+      verification_token VARCHAR(255),
+      
+      -- OAuth system (Google/Facebook)
+      auth_provider VARCHAR(50) DEFAULT 'local',
+      
+      -- Privacy management (JSON for flexibility)
+      -- E.g. {"birth_date": "private", "last_name": "friends"}
+      privacy_settings JSONB DEFAULT '{"first_name": "public", "last_name": "public", "birth_date": "private"}',
+      
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  const eventsTable = `
+    CREATE TABLE events (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      is_private BOOLEAN DEFAULT false,
+      location_restricted BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+const tracksTable = `
+    CREATE TABLE tracks (
+      id SERIAL PRIMARY KEY,
+      event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(255) NOT NULL,
+      artist VARCHAR(255) NOT NULL,
+      cover_url VARCHAR(255), -- NEW COLUMN FOR THE COVER ART
+      votes INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  try {
+    console.log("🧨 Cleaning up the old database...");
+    await pool.query(dropQuery);
+    
+    console.log("⏳ Creating the new V2 schema...");
+    await pool.query(usersTable);
+    await pool.query(eventsTable);
+    await pool.query(tracksTable);
+    console.log("✅ Tables ready!");
+  } catch (err) {
+    console.error("❌ Error:", err);
+  } finally {
+    process.exit();
+  }
+};
+
+createTables();
+
+=== FILE: backend/server.js ===
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const db = require('./config/db');
+const http = require('http');
+const { Server } = require('socket.io');
+const crypto = require('crypto');
+
+const app = express();
+const roomsQueue = {};
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+
+app.post('/api/register', async (req, res) => {
+    try {
+        const { email, password, firstName, lastName, birthDate } = req.body;
+        
+        if (!email || !password || !firstName || !lastName) {
+            return res.status(400).json({ error: "All required fields must be filled in" });
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const verificationToken = crypto.randomBytes(32).toString('hex'); // Create a unique, secure token
+        
+        const result = await db.query(
+            `INSERT INTO users (email, password, first_name, last_name, birth_date, verification_token) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email`,
+            [email, hashedPassword, firstName, lastName, birthDate || null, verificationToken]
+        );
+        
+        // ✉️ SIMULATED EMAIL SENDING (printed in the terminal)
+        const verifyLink = `http://localhost:${PORT}/api/verify/${verificationToken}`;
+        console.log(`\n📧 [SIMULATED EMAIL for ${email}]`);
+        console.log(`Subject: Welcome to Music Room! Confirm your email`);
+        console.log(`Click this link to activate your account : ${verifyLink}\n`);
+
+        res.status(201).json({ message: "Account created! Please check your emails to activate it." });
+    } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: "Email already in use" });
+        console.error(err);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+// --- ROUTE 2: LINK VERIFICATION ---
+app.get('/api/verify/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const result = await db.query(
+            'UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING id',
+            [token]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(400).send("<h1>Invalid link or account already verified.</h1>");
+        }
+
+        res.status(200).send("<h1>✅ Account activated successfully! You can now log in to the app.</h1>");
+    } catch (err) {
+        res.status(500).send("<h1>Server error</h1>");
+    }
+});
+
+// --- ROUTE 3: LOGIN (blocked if not verified) ---
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const result = await db.query('SELECT * FROM users WHERE email = $1 AND auth_provider = $2', [email, 'local']);
+        
+        if (result.rows.length === 0) return res.status(401).json({ error: "Invalid credentials" });
+        
+        const user = result.rows[0];
+
+        // 🛑 GATEKEEPER: check that the account is activated
+        if (!user.is_verified) {
+            return res.status(403).json({ error: "Please click the link sent by email to activate your account." });
+        }
+
+        const isValid = await bcrypt.compare(password, user.password);
+        if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
+
+        const token = jwt.sign(
+            { userId: user.id, email: user.email }, 
+            process.env.JWT_SECRET || 'mon_super_secret',
+            { expiresIn: '24h' }
+        );
+
+        res.status(200).json({ message: "Login successful", token, user: { id: user.id, email: user.email } });
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+app.post('/api/events', async (req, res) => {
+    try {
+        const { name, isPrivate, isLocationRestricted } = req.body;
+        if (!name) return res.status(400).json({ error: "Event name required" });
+
+        const result = await db.query(
+            'INSERT INTO events (name, is_private, location_restricted) VALUES ($1, $2, $3) RETURNING *',
+            [name, isPrivate, isLocationRestricted]
+        );
+        
+        res.status(201).json({ message: "Room created successfully", event: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+app.get('/api/events', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM events ORDER BY created_at DESC');
+        res.status(200).json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+app.post('/api/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "No account is associated with this email address." });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetLink = `http://localhost:${PORT}/api/reset-password/${resetToken}`;
+        
+        console.log(`\n📧 [SIMULATED EMAIL for ${email}]`);
+        console.log(`Subject: Reset your Music Room password`);
+        console.log(`Click this link to create a new password : ${resetLink}\n`);
+
+        res.status(200).json({ message: "If this email exists, a reset link has been sent." });
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
+io.on('connection', (socket) => {
+    console.log(`📱 Connected: ${socket.id}`);
+
+    // 1. JOIN THE ROOM & LOAD THE PLAYLIST FROM THE DB
+    socket.on('join_room', async (roomId) => {
+        socket.join(roomId);
+        console.log(`👤 Joined room: ${roomId}`);
+        try {
+            const result = await db.query('SELECT * FROM tracks WHERE event_id = $1 ORDER BY votes DESC, created_at ASC', [roomId]);
+            socket.emit('update_queue', result.rows);
+        } catch (err) { console.error(err); }
+    });
+
+    // 2. ADD A TRACK & BROADCAST
+    socket.on('add_track', async (trackData) => {
+        const { roomId, title, artist, coverUrl } = trackData;
+        const mockUserId = 1; // Temporary: will be linked to the JWT token later
+        
+        try {
+            await db.query(
+                'INSERT INTO tracks (event_id, user_id, title, artist, cover_url) VALUES ($1, $2, $3, $4, $5)',
+                [roomId, mockUserId, title, artist, coverUrl]
+            );
+            // Fetch the updated list
+            const result = await db.query('SELECT * FROM tracks WHERE event_id = $1 ORDER BY votes DESC, created_at ASC', [roomId]);
+            io.to(roomId).emit('update_queue', result.rows); // Broadcast to all phones
+        } catch (err) { console.error(err); }
+    });
+
+    // 3. VOTING SYSTEM
+    socket.on('vote_track', async ({ trackId, roomId, voteValue }) => {
+        try {
+            await db.query('UPDATE tracks SET votes = votes + $1 WHERE id = $2', [voteValue, trackId]);
+            const result = await db.query('SELECT * FROM tracks WHERE event_id = $1 ORDER BY votes DESC, created_at ASC', [roomId]);
+            io.to(roomId).emit('update_queue', result.rows);
+        } catch (err) { console.error(err); }
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`📵 Disconnected: ${socket.id}`);
+    });
+});
+
+server.listen(PORT, () => {
+    console.log(`🚀 API + WebSockets on port ${PORT}`);
+});
+
+=== FILE: backend/config/db.js ===
+
+const { Pool } = require('pg');
+require('dotenv').config();
+
+// Initialize the PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Test the connection
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ PostgreSQL connection error:', err.stack);
+  } else {
+    console.log('✅ Successfully connected to the PostgreSQL database!');
+    release();
+  }
+});
+
+module.exports = pool;
+
+=== FILE: frontend/package.json ===
+{
+  "name": "frontend",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@expo/ui": "~57.0.16",
+    "@react-native-community/datetimepicker": "9.1.0",
+    "expo": "~57.0.24",
+    "expo-auth-session": "~57.0.12",
+    "expo-constants": "~57.0.17",
+    "expo-crypto": "~57.0.3",
+    "expo-device": "~57.0.2",
+    "expo-font": "~57.0.3",
+    "expo-glass-effect": "~57.0.1",
+    "expo-image": "~57.0.5",
+    "expo-linking": "~57.0.9",
+    "expo-router": "~57.0.21",
+    "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-symbols": "~57.0.2",
+    "expo-system-ui": "~57.0.4",
+    "expo-web-browser": "~57.0.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0",
+    "react-native-worklets": "0.10.1",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint"
+  },
+  "private": true
+}
+
+
+=== FILE: frontend/src/app/_layout.tsx ===
+import { Stack } from 'expo-router';
+
+export default function RootLayout() {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+    </Stack>
+  );
+}
+
+=== FILE: frontend/src/app/index.tsx ===
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import * as Facebook from 'expo-auth-session/providers/facebook';
+import { Colors } from '../constants/theme';
+import { API_URL } from '@/constants/config';
+
+WebBrowser.maybeCompleteAuthSession();
+
+export default function AuthScreen() {
+  const router = useRouter();
+
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [birthDateWeb, setBirthDateWeb] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [globalMessage, setGlobalMessage] = useState({ type: '', text: '' });
+
+  const [requestG, responseG, promptAsyncG] = Google.useAuthRequest({
+    webClientId: 'TON_GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com',
+  });
+
+  const [requestF, responseF, promptAsyncF] = Facebook.useAuthRequest({
+    clientId: 'TON_FACEBOOK_APP_ID',
+  });
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    setGlobalMessage({ type: '', text: '' });
+
+    if (isLoginMode) {
+      if (!email) newErrors.email = "Email required";
+      if (!password) newErrors.password = "Password required";
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    }
+
+    if (!firstName) newErrors.firstName = "First name required";
+    if (!lastName) newErrors.lastName = "Last name required";
+    
+    if (Platform.OS === 'web') {
+      if (!birthDateWeb || birthDateWeb.length !== 10) newErrors.birthDate = "Date required (DD-MM-YYYY)";
+    } else {
+      if (!birthDate) newErrors.birthDate = "Date required";
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      newErrors.email = "Email required";
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = "Invalid email format";
+    }
+
+    const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!\%*?&]{8,}$/;
+    if (!password) {
+      newErrors.password = "Password required";
+    } else if (!passRegex.test(password)) {
+      newErrors.password = "8 chars min, 1 uppercase, 1 lowercase, 1 digit, 1 special char";
+    }
+
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Confirmation required";
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      setGlobalMessage({ type: 'error', text: 'Please fix the fields highlighted in red.' });
+    }
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleAuth = async () => {
+    if (!validateForm()) return;
+
+    const endpoint = isLoginMode ? '/login' : '/register';
+    
+    let finalBirthDate = null;
+    if (!isLoginMode) {
+      if (Platform.OS === 'web') {
+        const parts = birthDateWeb.split('-');
+        if (parts.length === 3) finalBirthDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      } else if (birthDate) {
+        finalBirthDate = birthDate.toISOString().split('T')[0];
+      }
+    }
+
+    const payload = isLoginMode 
+      ? { email, password }
+      : { email, password, firstName, lastName, birthDate: finalBirthDate };
+
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (isLoginMode) {
+          if (Platform.OS === 'web') localStorage.setItem('userToken', data.token);
+          else await SecureStore.setItemAsync('userToken', data.token);
+          router.replace('/home' as any);
+        } else {
+          setGlobalMessage({ type: 'success', text: data.message });
+          setIsLoginMode(true);
+          setErrors({});
+          setPassword('');
+          setConfirmPassword('');
+        }
+      } else {
+        setGlobalMessage({ type: 'error', text: data.error || "An error occurred." });
+      }
+    } catch (error) {
+      setGlobalMessage({ type: 'error', text: "Unable to reach the server." });
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setErrors({ email: "Please enter your email" });
+      setGlobalMessage({ type: 'error', text: "Enter your email to reset your password." });
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setGlobalMessage({ type: 'success', text: "Password reset email sent." });
+      } else {
+        setGlobalMessage({ type: 'error', text: data.error || "Error while resetting the password." });
+      }
+    } catch (error) {
+      setGlobalMessage({ type: 'error', text: "Unable to reach the server." });
+    }
+  };
+
+  const handleDateChangeWeb = (text: string) => {
+    let cleaned = text.replace(/[^0-9]/g, '');
+    let formatted = cleaned;
+    if (cleaned.length > 2) formatted = cleaned.slice(0, 2) + '-' + cleaned.slice(2);
+    if (cleaned.length > 4) formatted = formatted.slice(0, 5) + '-' + cleaned.slice(4, 8);
+    setBirthDateWeb(formatted);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        
+        <Text style={styles.title}>Music Room</Text>
+        <Text style={styles.subtitle}>
+          {isLoginMode ? "Log in to join the event" : "Create a complete and secure profile"}
+        </Text>
+
+        {globalMessage.text ? (
+          <Text style={[styles.globalMessage, globalMessage.type === 'error' ? styles.errorText : styles.successText]}>
+            {globalMessage.text}
+          </Text>
+        ) : null}
+
+        {!isLoginMode && (
+          <>
+            <View style={styles.row}>
+              <View style={styles.halfInputContainer}>
+                <TextInput 
+                  style={[styles.input, errors.firstName ? styles.inputError : null]} 
+                  placeholder="First name" 
+                  placeholderTextColor={Colors.dark.textSecondary} 
+                  value={firstName} 
+                  onChangeText={(t) => { setFirstName(t); setErrors({...errors, firstName: ''}); }} 
+                />
+                {errors.firstName ? <Text style={styles.inlineError}>{errors.firstName}</Text> : null}
+              </View>
+              <View style={styles.halfInputContainer}>
+                <TextInput 
+                  style={[styles.input, errors.lastName ? styles.inputError : null]} 
+                  placeholder="Last name" 
+                  placeholderTextColor={Colors.dark.textSecondary} 
+                  value={lastName} 
+                  onChangeText={(t) => { setLastName(t); setErrors({...errors, lastName: ''}); }} 
+                />
+                {errors.lastName ? <Text style={styles.inlineError}>{errors.lastName}</Text> : null}
+              </View>
+            </View>
+
+            {Platform.OS === 'web' ? (
+              <View style={styles.inputWrapper}>
+                <TextInput 
+                  style={[styles.input, errors.birthDate ? styles.inputError : null]} 
+                  placeholder="Date of birth (DD-MM-YYYY)" 
+                  placeholderTextColor={Colors.dark.textSecondary} 
+                  value={birthDateWeb} 
+                  onChangeText={(t) => { handleDateChangeWeb(t); setErrors({...errors, birthDate: ''}); }} 
+                  maxLength={10}
+                  keyboardType="number-pad"
+                />
+                {errors.birthDate ? <Text style={styles.inlineError}>{errors.birthDate}</Text> : null}
+              </View>
+            ) : (
+              <View style={styles.inputWrapper}>
+                <TouchableOpacity 
+                  style={[styles.input, errors.birthDate ? styles.inputError : null, { justifyContent: 'center' }]} 
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={{ color: birthDate ? Colors.dark.text : Colors.dark.textSecondary, fontSize: 16 }}>
+                    {birthDate ? birthDate.toLocaleDateString('en-GB') : "Date of birth"}
+                  </Text>
+                </TouchableOpacity>
+                {errors.birthDate ? <Text style={styles.inlineError}>{errors.birthDate}</Text> : null}
+
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={birthDate || new Date(2000, 0, 1)}
+                    mode="date"
+                    display="spinner"
+                    maximumDate={new Date()}
+                    onChange={(e, date) => {
+                      setShowDatePicker(Platform.OS === 'ios');
+                      if (date) {
+                        setBirthDate(date);
+                        setErrors({...errors, birthDate: ''});
+                      }
+                    }}
+                  />
+                )}
+              </View>
+            )}
+          </>
+        )}
+
+        <View style={styles.inputWrapper}>
+          <TextInput 
+            style={[styles.input, errors.email ? styles.inputError : null]} 
+            placeholder="Email address" 
+            placeholderTextColor={Colors.dark.textSecondary} 
+            value={email} 
+            onChangeText={(t) => { setEmail(t); setErrors({...errors, email: ''}); }} 
+            keyboardType="email-address" 
+            autoCapitalize="none" 
+          />
+          {errors.email ? <Text style={styles.inlineError}>{errors.email}</Text> : null}
+        </View>
+
+        <View style={styles.inputWrapper}>
+          <TextInput 
+            style={[styles.input, errors.password ? styles.inputError : null]} 
+            placeholder="Password" 
+            placeholderTextColor={Colors.dark.textSecondary} 
+            value={password} 
+            onChangeText={(t) => { setPassword(t); setErrors({...errors, password: ''}); }} 
+            secureTextEntry 
+          />
+          {errors.password ? <Text style={styles.inlineError}>{errors.password}</Text> : null}
+        </View>
+
+        {!isLoginMode && (
+          <View style={styles.inputWrapper}>
+            <TextInput 
+              style={[styles.input, errors.confirmPassword ? styles.inputError : null]} 
+              placeholder="Confirm password" 
+              placeholderTextColor={Colors.dark.textSecondary} 
+              value={confirmPassword} 
+              onChangeText={(t) => { setConfirmPassword(t); setErrors({...errors, confirmPassword: ''}); }} 
+              secureTextEntry 
+            />
+            {errors.confirmPassword ? <Text style={styles.inlineError}>{errors.confirmPassword}</Text> : null}
+          </View>
+        )}
+
+        {isLoginMode && (
+          <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordLink}>
+            <Text style={styles.forgotPasswordTextBtn}>Forgot password?</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.loginButton} onPress={handleAuth}>
+          <Text style={styles.loginButtonText}>{isLoginMode ? "LOG IN" : "CREATE MY ACCOUNT"}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.dividerContainer}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.divider} />
+        </View>
+
+        <TouchableOpacity style={[styles.socialButton, {backgroundColor: '#DB4437'}]} onPress={() => promptAsyncG()}>
+          <Text style={styles.socialButtonText}>
+            {isLoginMode ? "Log in with Google" : "Sign up with Google"}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={[styles.socialButton, {backgroundColor: '#4267B2'}]} onPress={() => promptAsyncF()}>
+          <Text style={styles.socialButtonText}>
+            {isLoginMode ? "Log in with Facebook" : "Sign up with Facebook"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.forgotPassword} onPress={() => { setIsLoginMode(!isLoginMode); setErrors({}); setGlobalMessage({ type: '', text: '' }); }}>
+          <Text style={styles.forgotPasswordText}>
+            {isLoginMode ? "New here? Create an account" : "Already have an account? Log in"}
+          </Text>
+        </TouchableOpacity>
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  content: { flexGrow: 1, padding: 24, justifyContent: 'center' },
+  title: { fontSize: 42, fontWeight: 'bold', color: Colors.dark.primary, textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: Colors.dark.textSecondary, textAlign: 'center', marginBottom: 24 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 16 },
+  halfInputContainer: { width: '48%' },
+  inputWrapper: { marginBottom: 16, width: '100%' },
+  input: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 8, fontSize: 16, borderWidth: 1, borderColor: 'transparent' },
+  inputError: { borderColor: Colors.dark.danger },
+  inlineError: { color: Colors.dark.danger, fontSize: 12, marginTop: 4, marginLeft: 4, fontWeight: 'bold' },
+  globalMessage: { fontSize: 14, textAlign: 'center', marginBottom: 16, fontWeight: 'bold', padding: 10, borderRadius: 8 },
+  errorText: { color: Colors.dark.danger, backgroundColor: 'rgba(255, 68, 68, 0.1)' },
+  successText: { color: Colors.dark.primary, backgroundColor: 'rgba(29, 185, 84, 0.1)' },
+  forgotPasswordLink: { alignSelf: 'flex-end', marginBottom: 16 },
+  forgotPasswordTextBtn: { color: Colors.dark.primary, fontSize: 14, fontWeight: 'bold' },
+  loginButton: { backgroundColor: Colors.dark.primary, paddingVertical: 16, borderRadius: 50, alignItems: 'center' },
+  loginButtonText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  forgotPassword: { marginTop: 24, alignItems: 'center' },
+  forgotPasswordText: { color: Colors.dark.textSecondary, fontSize: 14, textDecorationLine: 'underline' },
+  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
+  divider: { flex: 1, height: 1, backgroundColor: Colors.dark.backgroundElement },
+  dividerText: { color: Colors.dark.textSecondary, paddingHorizontal: 10, fontSize: 12 },
+  socialButton: { paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
+  socialButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+});
+
+=== FILE: frontend/src/app/home.tsx ===
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, RefreshControl, Platform } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import { Colors } from '../constants/theme';
+import { API_URL } from '@/constants/config';
+
+
+export default function HomeScreen() {
+  const router = useRouter();
+  
+  const [events, setEvents] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch(`${API_URL}/events`);
+      const data = await response.json();
+      if (response.ok) {
+        setEvents(data);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      const verifyAuth = async () => {
+        let token = null;
+        if (Platform.OS === 'web') {
+          token = localStorage.getItem('userToken');
+        } else {
+          token = await SecureStore.getItemAsync('userToken');
+        }
+
+        if (!token) {
+          router.replace('/' as any);
+          return;
+        }
+        fetchEvents();
+      };
+
+      verifyAuth();
+    }, [])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchEvents().then(() => setRefreshing(false));
+  }, []);
+
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem('userToken');
+    } else {
+      await SecureStore.deleteItemAsync('userToken');
+    }
+    router.replace('/' as any);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Events</Text>
+        <TouchableOpacity onPress={handleLogout}>
+          <Text style={styles.logoutText}>Log out</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView 
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.primary} />
+        }
+      >
+        <Text style={styles.sectionTitle}>Around me (Public)</Text>
+        
+        {events.length === 0 ? (
+          <Text style={styles.emptyText}>No active room right now. Create one!</Text>
+        ) : (
+          events.map((event) => (
+            <View key={event.id} style={styles.card}>
+              <Text style={styles.cardTitle}>{event.name}</Text>
+              <Text style={styles.cardSubtitle}>
+                {event.is_private ? '🔒 Private' : '🌍 Public'} {event.location_restricted ? ' • 📍 Proximity required' : ''}
+              </Text>
+              <TouchableOpacity style={styles.joinButton} onPress={() => router.push({ pathname: '/room', params: { id: event.id } } as any)}>
+                <Text style={styles.joinButtonText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/create' as any)}>
+        <Text style={styles.fabIcon}>+</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
+  headerTitle: { fontSize: 28, fontWeight: 'bold', color: Colors.dark.text },
+  logoutText: { color: Colors.dark.textSecondary, fontSize: 16 },
+  content: { padding: 20 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.primary, marginTop: 10, marginBottom: 15 },
+  emptyText: { color: Colors.dark.textSecondary, fontStyle: 'italic', textAlign: 'center', marginTop: 20 },
+  card: { backgroundColor: Colors.dark.backgroundElement, padding: 20, borderRadius: 10, marginBottom: 15 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 5 },
+  cardSubtitle: { fontSize: 14, color: Colors.dark.textSecondary, marginBottom: 15 },
+  joinButton: { backgroundColor: Colors.dark.primary, paddingVertical: 10, borderRadius: 20, alignItems: 'center' },
+  joinButtonText: { color: Colors.dark.background, fontWeight: 'bold' },
+  fab: { position: 'absolute', bottom: 30, right: 30, backgroundColor: Colors.dark.primary, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  fabIcon: { fontSize: 30, color: Colors.dark.background, fontWeight: 'bold' }
+});
+
+=== FILE: frontend/src/app/create.tsx ===
+import React, { useState } from 'react';
+import { View, Text, TextInput, Switch, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Colors } from '../constants/theme';
+import { API_URL } from '@/constants/config';
+
+export default function CreateEventScreen() {
+  const router = useRouter();
+  
+  const [eventName, setEventName] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [isLocationRestricted, setIsLocationRestricted] = useState(false);
+
+  const handleCreate = async () => {
+    try {
+      const response = await fetch(`${API_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: eventName, 
+          isPrivate: isPrivate, 
+          isLocationRestricted: isLocationRestricted 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Success", data.message);
+        // Replace the current screen with the room we just created
+        router.replace({ pathname: '/room', params: { id: data.event.id } } as any);
+      } else {
+        Alert.alert("Error", data.error);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Unable to reach the server");
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>New Room</Text>
+        <View style={{ width: 60 }} />
+      </View>
+
+      <View style={styles.content}>
+        <Text style={styles.label}>Event name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="E.g. Brighton party"
+          placeholderTextColor={Colors.dark.textSecondary}
+          value={eventName}
+          onChangeText={setEventName}
+        />
+
+        <View style={styles.switchRow}>
+          <View>
+            <Text style={styles.switchLabel}>Private event</Text>
+            <Text style={styles.switchSubLabel}>Invitation only</Text>
+          </View>
+          <Switch
+            trackColor={{ false: Colors.dark.backgroundSelected, true: Colors.dark.primary }}
+            thumbColor={Colors.dark.text}
+            onValueChange={setIsPrivate}
+            value={isPrivate}
+          />
+        </View>
+
+        <View style={styles.switchRow}>
+          <View>
+            <Text style={styles.switchLabel}>License: Proximity</Text>
+            <Text style={styles.switchSubLabel}>Must users be on site to vote?</Text>
+          </View>
+          <Switch
+            trackColor={{ false: Colors.dark.backgroundSelected, true: Colors.dark.primary }}
+            thumbColor={Colors.dark.text}
+            onValueChange={setIsLocationRestricted}
+            value={isLocationRestricted}
+          />
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.createButton, !eventName && styles.createButtonDisabled]} 
+          onPress={handleCreate}
+          disabled={!eventName}
+        >
+          <Text style={styles.createButtonText}>CREATE ROOM</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
+  cancelText: { color: Colors.dark.textSecondary, fontSize: 16 },
+  content: { padding: 20, flex: 1 },
+  label: { color: Colors.dark.text, fontSize: 16, marginBottom: 8, fontWeight: 'bold' },
+  input: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, padding: 16, borderRadius: 8, marginBottom: 24, fontSize: 16 },
+  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, backgroundColor: Colors.dark.backgroundElement, padding: 16, borderRadius: 8 },
+  switchLabel: { color: Colors.dark.text, fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+  switchSubLabel: { color: Colors.dark.textSecondary, fontSize: 12 },
+  createButton: { backgroundColor: Colors.dark.primary, paddingVertical: 16, borderRadius: 50, alignItems: 'center', marginTop: 'auto', marginBottom: 20 },
+  createButtonDisabled: { backgroundColor: Colors.dark.backgroundSelected },
+  createButtonText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+});
+
+=== FILE: frontend/src/app/room.tsx ===
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, FlatList, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { io, Socket } from 'socket.io-client';
+import { Colors } from '../constants/theme';
+import { SERVER_URL } from '@/constants/config';
+
+export default function RoomScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams(); 
+  
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [queue, setQueue] = useState<any[]>([]);
+
+  const SOCKET_URL = SERVER_URL;
+
+  useEffect(() => {
+    const newSocket = io(SOCKET_URL);
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      newSocket.emit('join_room', id);
+    });
+
+    newSocket.on('update_queue', (updatedQueue) => {
+      setQueue(updatedQueue);
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [id]);
+
+  const handleSearch = async (text: string) => {
+    setSearchQuery(text);
+    if (text.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(text)}&media=music&entity=song&limit=5`);
+      const data = await response.json();
+      setSearchResults(data.results);
+    } catch (error) {
+      console.error("iTunes API error:", error);
+    }
+  };
+
+  const handleAddTrack = (track: any) => {
+    const trackData = {
+      roomId: id,
+      title: track.trackName,
+      artist: track.artistName,
+      coverUrl: track.artworkUrl100,
+    };
+    socket?.emit('add_track', trackData);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleVote = (trackId: number, voteValue: number) => {
+    socket?.emit('vote_track', { trackId, roomId: id, voteValue });
+  };
+
+  const renderSearchResult = ({ item }: { item: any }) => (
+    <View style={styles.trackCard}>
+      <Image source={{ uri: item.artworkUrl100 }} style={styles.albumCover} />
+      <View style={styles.trackInfo}>
+        <Text style={styles.trackTitle} numberOfLines={1}>{item.trackName}</Text>
+        <Text style={styles.trackArtist} numberOfLines={1}>{item.artistName}</Text>
+      </View>
+      <TouchableOpacity style={styles.addButton} onPress={() => handleAddTrack(item)}>
+        <Text style={styles.addButtonText}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.replace('/home' as any)}>
+            <Text style={styles.backText}>← Leave</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Room #{id}</Text>
+          <TouchableOpacity><Text style={styles.settingsText}>⚙️</Text></TouchableOpacity>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for a track..."
+            placeholderTextColor={Colors.dark.textSecondary}
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+        </View>
+
+        <View style={styles.content}>
+          {searchQuery.length >= 3 ? (
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item) => item.trackId.toString()}
+              renderItem={renderSearchResult}
+              keyboardShouldPersistTaps="handled"
+            />
+          ) : (
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Queue</Text>
+              {queue.length === 0 ? (
+                <Text style={styles.emptyQueueText}>The playlist is empty. Search for a track!</Text>
+              ) : (
+                <FlatList
+                  data={queue}
+                  keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+                  renderItem={({ item }) => (
+                    <View style={styles.trackCard}>
+                      {item.cover_url && <Image source={{ uri: item.cover_url }} style={styles.albumCover} />}
+                      <View style={styles.trackInfo}>
+                        <Text style={styles.trackTitle}>{item.title}</Text>
+                        <Text style={styles.trackArtist}>{item.artist}</Text>
+                      </View>
+                      <View style={styles.voteContainer}>
+                        <TouchableOpacity onPress={() => handleVote(item.id, 1)} style={styles.voteBtn}>
+                          <Text style={styles.voteIcon}>👍</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.voteCount}>{item.votes || 0}</Text>
+                        <TouchableOpacity onPress={() => handleVote(item.id, -1)} style={styles.voteBtn}>
+                          <Text style={styles.voteIcon}>👎</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
+  backText: { color: Colors.dark.danger, fontSize: 16, fontWeight: 'bold' },
+  settingsText: { fontSize: 20 },
+  searchContainer: { padding: 15, backgroundColor: Colors.dark.background },
+  searchInput: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, padding: 15, borderRadius: 12, fontSize: 16 },
+  content: { flex: 1, paddingHorizontal: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 15 },
+  trackCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.backgroundElement, padding: 10, borderRadius: 10, marginBottom: 10 },
+  albumCover: { width: 50, height: 50, borderRadius: 8, marginRight: 15, backgroundColor: Colors.dark.backgroundSelected },
+  trackInfo: { flex: 1 },
+  trackTitle: { color: Colors.dark.text, fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+  trackArtist: { color: Colors.dark.textSecondary, fontSize: 14 },
+  addButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.dark.primary, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
+  addButtonText: { color: Colors.dark.background, fontSize: 24, fontWeight: 'bold', lineHeight: 26 },
+  emptyQueueText: { color: Colors.dark.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 40 },
+  voteContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.background, borderRadius: 20, paddingHorizontal: 5 },
+  voteBtn: { padding: 8 },
+  voteIcon: { fontSize: 16 },
+  voteCount: { color: Colors.dark.text, fontWeight: 'bold', fontSize: 16, marginHorizontal: 5, minWidth: 20, textAlign: 'center' },
+});
+
+=== FILE: frontend/src/constants/theme.ts ===
+import '@/global.css';
+import { Platform } from 'react-native';
+
+export const Colors = {
+  light: {
+    text: '#000000',
+    background: '#ffffff',
+    backgroundElement: '#F0F0F3',
+    backgroundSelected: '#E0E1E6',
+    textSecondary: '#60646C',
+    primary: '#1DB954',
+    danger: '#FF4444',
+  },
+  dark: {
+    text: '#ffffff',
+    background: '#121212',
+    backgroundElement: '#282828',
+    backgroundSelected: '#3E3E3E',
+    textSecondary: '#B3B3B3',
+    primary: '#1DB954',
+    danger: '#FF4444',
+  },
+} as const;
+
+export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+export const Fonts = Platform.select({
+  ios: {
+    sans: 'system-ui',
+    serif: 'ui-serif',
+    rounded: 'ui-rounded',
+    mono: 'ui-monospace',
+  },
+  default: {
+    sans: 'normal',
+    serif: 'serif',
+    rounded: 'normal',
+    mono: 'monospace',
+  },
+  web: {
+    sans: 'var(--font-display)',
+    serif: 'var(--font-serif)',
+    rounded: 'var(--font-rounded)',
+    mono: 'var(--font-mono)',
+  },
+});
+
+export const Spacing = {
+  half: 2,
+  one: 4,
+  two: 8,
+  three: 16,
+  four: 24,
+  five: 32,
+  six: 64,
+} as const;
+
+export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+export const MaxContentWidth = 800;
+

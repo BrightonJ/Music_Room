@@ -1,0 +1,105 @@
+[33mcommit b3d75bdb594c0d53de21e681387231c617cfd6d2[m[33m ([m[1;31morigin/jen/english-translation[m[33m)[m
+Author: Jennifer Ubaldo <jenniferdianeu@gmail.com>
+Date:   Mon Sep 21 19:53:31 2026 +0200
+
+    lang(arch): switch from FR to EN
+
+[1mdiff --git a/backend/.env.example b/backend/.env.example[m
+[1mindex 725a7ca..0120184 100644[m
+[1m--- a/backend/.env.example[m
+[1m+++ b/backend/.env.example[m
+[36m@@ -1,14 +1,14 @@[m
+[31m-# Port du serveur API[m
+[32m+[m[32m# API server port[m
+ PORT=3000[m
+ [m
+[31m-# Connexion à la base de données PostgreSQL (Podman/Docker)[m
+[31m-# Format : postgres://UTILISATEUR:MOT_DE_PASSE@localhost:5432/NOM_DE_LA_BASE[m
+[32m+[m[32m# PostgreSQL database connection (Podman/Docker)[m
+[32m+[m[32m# Format: postgres://USER:PASSWORD@localhost:5432/DATABASE_NAME[m
+ DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/musicroom[m
+ [m
+[31m-# Lus par docker-compose (doivent correspondre à DATABASE_URL)[m
+[32m+[m[32m# Read by docker-compose (must match DATABASE_URL)[m
+ POSTGRES_USER=USER[m
+ POSTGRES_PASSWORD=PASSWORD[m
+ POSTGRES_DB=musicroom[m
+ [m
+[31m-# Clé secrète pour générer les badges de connexion (Tokens JWT)[m
+[32m+[m[32m# Secret key used to sign login tokens (JWT)[m
+ JWT_SECRET=CHANGE_ME[m
+\ No newline at end of file[m
+
+[33mcommit f97d94da642d72593c84c6b997121180e5a385e4[m
+Author: Jennifer Ubaldo <jenniferdianeu@gmail.com>
+Date:   Mon Sep 21 19:53:15 2026 +0200
+
+    lang(arch): switch from FR to EN
+
+[1mdiff --git a/frontend/.env.example b/frontend/.env.example[m
+[1mindex 41ba659..0986fd2 100644[m
+[1m--- a/frontend/.env.example[m
+[1m+++ b/frontend/.env.example[m
+[36m@@ -1,2 +1,2 @@[m
+[31m-# Adresse du back-end (IP de la machine qui fait tourner le serveur, pas "localhost" sur un vrai téléphone)[m
+[32m+[m[32m# Back-end address (IP of the machine running the server; not "localhost" on a real phone)[m
+ EXPO_PUBLIC_API_URL=http://localhost:3000[m
+
+[33mcommit 320182ff1aac247284bf19ed8bb2f2c3400d98da[m
+Author: Jennifer Ubaldo <jenniferdianeu@gmail.com>
+Date:   Mon Sep 21 19:42:01 2026 +0200
+
+    fix(hygiene): clean files, harcoded values, configurable backend address
+
+[1mdiff --git a/backend/.env.example b/backend/.env.example[m
+[1mindex 212ce8c..725a7ca 100644[m
+[1m--- a/backend/.env.example[m
+[1m+++ b/backend/.env.example[m
+[36m@@ -3,7 +3,12 @@[m [mPORT=3000[m
+ [m
+ # Connexion à la base de données PostgreSQL (Podman/Docker)[m
+ # Format : postgres://UTILISATEUR:MOT_DE_PASSE@localhost:5432/NOM_DE_LA_BASE[m
+[31m-DATABASE_URL=postgres://admin:rootpassword@localhost:5432/musicroom[m
+[32m+[m[32mDATABASE_URL=postgres://USER:PASSWORD@localhost:5432/musicroom[m
+[32m+[m
+[32m+[m[32m# Lus par docker-compose (doivent correspondre à DATABASE_URL)[m
+[32m+[m[32mPOSTGRES_USER=USER[m
+[32m+[m[32mPOSTGRES_PASSWORD=PASSWORD[m
+[32m+[m[32mPOSTGRES_DB=musicroom[m
+ [m
+ # Clé secrète pour générer les badges de connexion (Tokens JWT)[m
+[31m-JWT_SECRET=ceci_est_un_secret_pour_le_dev_local_music_room[m
+\ No newline at end of file[m
+[32m+[m[32mJWT_SECRET=CHANGE_ME[m
+\ No newline at end of file[m
+[1mdiff --git a/frontend/.env.example b/frontend/.env.example[m
+[1mnew file mode 100644[m
+[1mindex 0000000..41ba659[m
+[1m--- /dev/null[m
+[1m+++ b/frontend/.env.example[m
+[36m@@ -0,0 +1,2 @@[m
+[32m+[m[32m# Adresse du back-end (IP de la machine qui fait tourner le serveur, pas "localhost" sur un vrai téléphone)[m
+[32m+[m[32mEXPO_PUBLIC_API_URL=http://localhost:3000[m
+
+[33mcommit 3446724d48b6819470976cc73b90df2a34e3b2c0[m
+Author: brjoves <brjoves@f2r11s4.paris.42.school>
+Date:   Mon Sep 7 19:32:57 2026 +0200
+
+    login fulled
+
+[1mdiff --git a/backend/.env.example b/backend/.env.example[m
+[1mnew file mode 100644[m
+[1mindex 0000000..212ce8c[m
+[1m--- /dev/null[m
+[1m+++ b/backend/.env.example[m
+[36m@@ -0,0 +1,9 @@[m
+[32m+[m[32m# Port du serveur API[m
+[32m+[m[32mPORT=3000[m
+[32m+[m
+[32m+[m[32m# Connexion à la base de données PostgreSQL (Podman/Docker)[m
+[32m+[m[32m# Format : postgres://UTILISATEUR:MOT_DE_PASSE@localhost:5432/NOM_DE_LA_BASE[m
+[32m+[m[32mDATABASE_URL=postgres://admin:rootpassword@localhost:5432/musicroom[m
+[32m+[m
+[32m+[m[32m# Clé secrète pour générer les badges de connexion (Tokens JWT)[m
+[32m+[m[32mJWT_SECRET=ceci_est_un_secret_pour_le_dev_local_music_room[m
+\ No newline at end of file[m

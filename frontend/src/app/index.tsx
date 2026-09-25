@@ -18,6 +18,7 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState<Date | null>(null);
@@ -48,7 +49,14 @@ export default function AuthScreen() {
 
     if (!firstName) newErrors.firstName = "First name required";
     if (!lastName) newErrors.lastName = "Last name required";
-    
+
+    const usernameRegex = /^[A-Za-z0-9_]{3,20}$/;
+    if (!username) {
+      newErrors.username = "Username required";
+    } else if (!usernameRegex.test(username)) {
+      newErrors.username = "3-20 characters: letters, digits, underscore";
+    }
+
     if (Platform.OS === 'web') {
       if (!birthDateWeb || birthDateWeb.length !== 10) newErrors.birthDate = "Date required (DD-MM-YYYY)";
     } else {
@@ -62,11 +70,11 @@ export default function AuthScreen() {
       newErrors.email = "Invalid email format";
     }
 
-    const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!\%*?&]{8,}$/;
+    const passRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
     if (!password) {
       newErrors.password = "Password required";
     } else if (!passRegex.test(password)) {
-      newErrors.password = "8 chars min, 1 uppercase, 1 lowercase, 1 digit, 1 special char";
+      newErrors.password = "8 characters minimum, at least 1 letter and 1 digit";
     }
 
     if (!confirmPassword) {
@@ -76,7 +84,7 @@ export default function AuthScreen() {
     }
 
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length > 0) {
       setGlobalMessage({ type: 'error', text: 'Please fix the fields highlighted in red.' });
     }
@@ -88,20 +96,23 @@ export default function AuthScreen() {
     if (!validateForm()) return;
 
     const endpoint = isLoginMode ? '/login' : '/register';
-    
+
     let finalBirthDate = null;
     if (!isLoginMode) {
       if (Platform.OS === 'web') {
         const parts = birthDateWeb.split('-');
         if (parts.length === 3) finalBirthDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
       } else if (birthDate) {
-        finalBirthDate = birthDate.toISOString().split('T')[0];
+        const y = birthDate.getFullYear();
+        const m = String(birthDate.getMonth() + 1).padStart(2, '0');
+        const d = String(birthDate.getDate()).padStart(2, '0');
+        finalBirthDate = `${y}-${m}-${d}`;
       }
     }
 
-    const payload = isLoginMode 
+    const payload = isLoginMode
       ? { email, password }
-      : { email, password, firstName, lastName, birthDate: finalBirthDate };
+      : { email, password, username, firstName, lastName, birthDate: finalBirthDate };
 
     try {
       const response = await fetch(`${API_URL}${endpoint}`, {
@@ -166,7 +177,7 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
+
         <Text style={styles.title}>Music Room</Text>
         <Text style={styles.subtitle}>
           {isLoginMode ? "Log in to join the event" : "Create a complete and secure profile"}
@@ -180,24 +191,36 @@ export default function AuthScreen() {
 
         {!isLoginMode && (
           <>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.input, errors.username ? styles.inputError : null]}
+                placeholder="Username"
+                placeholderTextColor={Colors.dark.textSecondary}
+                value={username}
+                onChangeText={(t) => { setUsername(t); setErrors({...errors, username: ''}); }}
+                autoCapitalize="none"
+              />
+              {errors.username ? <Text style={styles.inlineError}>{errors.username}</Text> : null}
+            </View>
+
             <View style={styles.row}>
               <View style={styles.halfInputContainer}>
-                <TextInput 
-                  style={[styles.input, errors.firstName ? styles.inputError : null]} 
-                  placeholder="First name" 
-                  placeholderTextColor={Colors.dark.textSecondary} 
-                  value={firstName} 
-                  onChangeText={(t) => { setFirstName(t); setErrors({...errors, firstName: ''}); }} 
+                <TextInput
+                  style={[styles.input, errors.firstName ? styles.inputError : null]}
+                  placeholder="First name"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  value={firstName}
+                  onChangeText={(t) => { setFirstName(t); setErrors({...errors, firstName: ''}); }}
                 />
                 {errors.firstName ? <Text style={styles.inlineError}>{errors.firstName}</Text> : null}
               </View>
               <View style={styles.halfInputContainer}>
-                <TextInput 
-                  style={[styles.input, errors.lastName ? styles.inputError : null]} 
-                  placeholder="Last name" 
-                  placeholderTextColor={Colors.dark.textSecondary} 
-                  value={lastName} 
-                  onChangeText={(t) => { setLastName(t); setErrors({...errors, lastName: ''}); }} 
+                <TextInput
+                  style={[styles.input, errors.lastName ? styles.inputError : null]}
+                  placeholder="Last name"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  value={lastName}
+                  onChangeText={(t) => { setLastName(t); setErrors({...errors, lastName: ''}); }}
                 />
                 {errors.lastName ? <Text style={styles.inlineError}>{errors.lastName}</Text> : null}
               </View>
@@ -205,12 +228,12 @@ export default function AuthScreen() {
 
             {Platform.OS === 'web' ? (
               <View style={styles.inputWrapper}>
-                <TextInput 
-                  style={[styles.input, errors.birthDate ? styles.inputError : null]} 
-                  placeholder="Date of birth (DD-MM-YYYY)" 
-                  placeholderTextColor={Colors.dark.textSecondary} 
-                  value={birthDateWeb} 
-                  onChangeText={(t) => { handleDateChangeWeb(t); setErrors({...errors, birthDate: ''}); }} 
+                <TextInput
+                  style={[styles.input, errors.birthDate ? styles.inputError : null]}
+                  placeholder="Date of birth (DD-MM-YYYY)"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  value={birthDateWeb}
+                  onChangeText={(t) => { handleDateChangeWeb(t); setErrors({...errors, birthDate: ''}); }}
                   maxLength={10}
                   keyboardType="number-pad"
                 />
@@ -218,8 +241,8 @@ export default function AuthScreen() {
               </View>
             ) : (
               <View style={styles.inputWrapper}>
-                <TouchableOpacity 
-                  style={[styles.input, errors.birthDate ? styles.inputError : null, { justifyContent: 'center' }]} 
+                <TouchableOpacity
+                  style={[styles.input, errors.birthDate ? styles.inputError : null, { justifyContent: 'center' }]}
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Text style={{ color: birthDate ? Colors.dark.text : Colors.dark.textSecondary, fontSize: 16 }}>
@@ -249,39 +272,39 @@ export default function AuthScreen() {
         )}
 
         <View style={styles.inputWrapper}>
-          <TextInput 
-            style={[styles.input, errors.email ? styles.inputError : null]} 
-            placeholder="Email address" 
-            placeholderTextColor={Colors.dark.textSecondary} 
-            value={email} 
-            onChangeText={(t) => { setEmail(t); setErrors({...errors, email: ''}); }} 
-            keyboardType="email-address" 
-            autoCapitalize="none" 
+          <TextInput
+            style={[styles.input, errors.email ? styles.inputError : null]}
+            placeholder="Email address"
+            placeholderTextColor={Colors.dark.textSecondary}
+            value={email}
+            onChangeText={(t) => { setEmail(t); setErrors({...errors, email: ''}); }}
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
           {errors.email ? <Text style={styles.inlineError}>{errors.email}</Text> : null}
         </View>
 
         <View style={styles.inputWrapper}>
-          <TextInput 
-            style={[styles.input, errors.password ? styles.inputError : null]} 
-            placeholder="Password" 
-            placeholderTextColor={Colors.dark.textSecondary} 
-            value={password} 
-            onChangeText={(t) => { setPassword(t); setErrors({...errors, password: ''}); }} 
-            secureTextEntry 
+          <TextInput
+            style={[styles.input, errors.password ? styles.inputError : null]}
+            placeholder="Password"
+            placeholderTextColor={Colors.dark.textSecondary}
+            value={password}
+            onChangeText={(t) => { setPassword(t); setErrors({...errors, password: ''}); }}
+            secureTextEntry
           />
           {errors.password ? <Text style={styles.inlineError}>{errors.password}</Text> : null}
         </View>
 
         {!isLoginMode && (
           <View style={styles.inputWrapper}>
-            <TextInput 
-              style={[styles.input, errors.confirmPassword ? styles.inputError : null]} 
-              placeholder="Confirm password" 
-              placeholderTextColor={Colors.dark.textSecondary} 
-              value={confirmPassword} 
-              onChangeText={(t) => { setConfirmPassword(t); setErrors({...errors, confirmPassword: ''}); }} 
-              secureTextEntry 
+            <TextInput
+              style={[styles.input, errors.confirmPassword ? styles.inputError : null]}
+              placeholder="Confirm password"
+              placeholderTextColor={Colors.dark.textSecondary}
+              value={confirmPassword}
+              onChangeText={(t) => { setConfirmPassword(t); setErrors({...errors, confirmPassword: ''}); }}
+              secureTextEntry
             />
             {errors.confirmPassword ? <Text style={styles.inlineError}>{errors.confirmPassword}</Text> : null}
           </View>
@@ -308,7 +331,7 @@ export default function AuthScreen() {
             {isLoginMode ? "Log in with Google" : "Sign up with Google"}
           </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={[styles.socialButton, {backgroundColor: '#4267B2'}]} onPress={() => promptAsyncF()}>
           <Text style={styles.socialButtonText}>
             {isLoginMode ? "Log in with Facebook" : "Sign up with Facebook"}

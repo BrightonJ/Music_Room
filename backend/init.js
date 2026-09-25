@@ -1,30 +1,34 @@
 const pool = require('./config/db');
 
 const createTables = async () => {
-  // ⚠️ DROP EVERYTHING TO START FROM SCRATCH (dev only!)
-  const dropQuery = `DROP TABLE IF EXISTS tracks, events, users CASCADE;`;
+  if (!process.argv.includes('--force')) {
+    console.error('Refusing to run without --force. This command drops all tables.');
+    process.exit(1);
+  }
 
-  // NEW USERS TABLE (secure & complete version)
+  const dropQuery = `DROP TABLE IF EXISTS event_playback, track_votes, event_invitations, friendships, tracks, events, users CASCADE;`;
+
   const usersTable = `
     CREATE TABLE users (
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
-      password VARCHAR(255), -- Optional for Google/Facebook
+      username VARCHAR(20) UNIQUE NOT NULL,
+      password VARCHAR(255),
       first_name VARCHAR(100),
       last_name VARCHAR(100),
       birth_date DATE,
-      
-      -- Email verification system
+
       is_verified BOOLEAN DEFAULT false,
       verification_token VARCHAR(255),
-      
-      -- OAuth system (Google/Facebook)
+
+      reset_token VARCHAR(255),
+      reset_token_expires TIMESTAMP,
+
       auth_provider VARCHAR(50) DEFAULT 'local',
-      
-      -- Privacy management (JSON for flexibility)
-      -- E.g. {"birth_date": "private", "last_name": "friends"}
-      privacy_settings JSONB DEFAULT '{"first_name": "public", "last_name": "public", "birth_date": "private"}',
-      
+
+      privacy_settings JSONB DEFAULT '{"first_name": "public", "last_name": "public", "birth_date": "private", "music_preferences": "friends"}',
+      music_preferences JSONB DEFAULT '[]',
+
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
@@ -32,6 +36,7 @@ const createTables = async () => {
   const eventsTable = `
     CREATE TABLE events (
       id SERIAL PRIMARY KEY,
+      owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(255) NOT NULL,
       is_private BOOLEAN DEFAULT false,
       location_restricted BOOLEAN DEFAULT false,
@@ -39,30 +44,79 @@ const createTables = async () => {
     );
   `;
 
-const tracksTable = `
+  const tracksTable = `
     CREATE TABLE tracks (
       id SERIAL PRIMARY KEY,
       event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       title VARCHAR(255) NOT NULL,
       artist VARCHAR(255) NOT NULL,
-      cover_url VARCHAR(255), -- NEW COLUMN FOR THE COVER ART
-      votes INTEGER DEFAULT 0,
+      cover_url VARCHAR(255),
+      preview_url VARCHAR(500),
+      duration_ms INTEGER DEFAULT 30000,
+      played BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
 
+  const trackVotesTable = `
+    CREATE TABLE track_votes (
+      id SERIAL PRIMARY KEY,
+      track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      value SMALLINT NOT NULL CHECK (value IN (-1, 1)),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (track_id, user_id)
+    );
+  `;
+
+  const friendshipsTable = `
+    CREATE TABLE friendships (
+      id SERIAL PRIMARY KEY,
+      requester_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      addressee_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(20) DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CHECK (requester_id != addressee_id),
+      UNIQUE (requester_id, addressee_id)
+    );
+  `;
+
+  const eventInvitationsTable = `
+    CREATE TABLE event_invitations (
+      id SERIAL PRIMARY KEY,
+      event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      invited_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (event_id, user_id)
+    );
+  `;
+
+  const eventPlaybackTable = `
+    CREATE TABLE event_playback (
+      event_id INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
+      current_track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
+      started_at TIMESTAMP,
+      duration_ms INTEGER
+    );
+  `;
+
   try {
-    console.log("🧨 Cleaning up the old database...");
+    console.log("Cleaning up the old database...");
     await pool.query(dropQuery);
-    
-    console.log("⏳ Creating the new V2 schema...");
+
+    console.log("Creating the schema...");
     await pool.query(usersTable);
     await pool.query(eventsTable);
     await pool.query(tracksTable);
-    console.log("✅ Tables ready!");
+    await pool.query(trackVotesTable);
+    await pool.query(friendshipsTable);
+    await pool.query(eventInvitationsTable);
+    await pool.query(eventPlaybackTable);
+    console.log("Tables ready!");
   } catch (err) {
-    console.error("❌ Error:", err);
+    console.error("Error:", err);
   } finally {
     process.exit();
   }
