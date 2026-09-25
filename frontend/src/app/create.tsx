@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Switch, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Colors } from '../constants/theme';
+import { RetroButton, RetroInput, RetroPage, RetroToggleRow } from '@/components/retro';
+import { Space } from '@/constants/theme';
 import { API_URL } from '@/constants/config';
+import { getToken } from '@/lib/token';
 
 export default function CreateEventScreen() {
   const router = useRouter();
@@ -13,9 +15,10 @@ export default function CreateEventScreen() {
 
   const handleCreate = async () => {
     try {
+      const token = await getToken();
       const response = await fetch(`${API_URL}/events`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ 
           name: eventName, 
           isPrivate: isPrivate, 
@@ -39,75 +42,25 @@ export default function CreateEventScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Room</Text>
-        <View style={{ width: 60 }} />
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.label}>Event name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="E.g. Brighton party"
-          placeholderTextColor={Colors.dark.textSecondary}
-          value={eventName}
-          onChangeText={setEventName}
-        />
-
-        <View style={styles.switchRow}>
-          <View>
-            <Text style={styles.switchLabel}>Private event</Text>
-            <Text style={styles.switchSubLabel}>Invitation only</Text>
-          </View>
-          <Switch
-            trackColor={{ false: Colors.dark.backgroundSelected, true: Colors.dark.primary }}
-            thumbColor={Colors.dark.text}
-            onValueChange={setIsPrivate}
-            value={isPrivate}
-          />
-        </View>
-
-        <View style={styles.switchRow}>
-          <View>
-            <Text style={styles.switchLabel}>License: Proximity</Text>
-            <Text style={styles.switchSubLabel}>Must users be on site to vote?</Text>
-          </View>
-          <Switch
-            trackColor={{ false: Colors.dark.backgroundSelected, true: Colors.dark.primary }}
-            thumbColor={Colors.dark.text}
-            onValueChange={setIsLocationRestricted}
-            value={isLocationRestricted}
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.createButton, !eventName && styles.createButtonDisabled]} 
-          onPress={handleCreate}
-          disabled={!eventName}
-        >
-          <Text style={styles.createButtonText}>CREATE ROOM</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    <RetroPage
+      title="New room"
+      left={{ label: 'Cancel', onPress: () => router.back() }}
+      footer={<RetroButton label="Create room" onPress={handleCreate} disabled={!eventName} />}
+    >
+      <RetroInput
+        label="Event name"
+        placeholder="E.g. Brighton party"
+        value={eventName}
+        onChangeText={setEventName}
+        containerStyle={{ marginBottom: Space.xxl }}
+      />
+      <RetroToggleRow style={{ marginBottom: Space.xl }} title="Private event" subtitle="Invitation only" value={isPrivate} onValueChange={setIsPrivate} />
+      <RetroToggleRow
+        title="License: proximity"
+        subtitle="Must users be on site to vote?"
+        value={isLocationRestricted}
+        onValueChange={setIsLocationRestricted}
+      />
+    </RetroPage>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
-  cancelText: { color: Colors.dark.textSecondary, fontSize: 16 },
-  content: { padding: 20, flex: 1 },
-  label: { color: Colors.dark.text, fontSize: 16, marginBottom: 8, fontWeight: 'bold' },
-  input: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, padding: 16, borderRadius: 8, marginBottom: 24, fontSize: 16 },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, backgroundColor: Colors.dark.backgroundElement, padding: 16, borderRadius: 8 },
-  switchLabel: { color: Colors.dark.text, fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  switchSubLabel: { color: Colors.dark.textSecondary, fontSize: 12 },
-  createButton: { backgroundColor: Colors.dark.primary, paddingVertical: 16, borderRadius: 50, alignItems: 'center', marginTop: 'auto', marginBottom: 20 },
-  createButtonDisabled: { backgroundColor: Colors.dark.backgroundSelected },
-  createButtonText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
-});

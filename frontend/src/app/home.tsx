@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, RefreshControl, Platform } from 'react-native';
+import { View, StyleSheet, RefreshControl, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { Colors } from '../constants/theme';
+import { CardToneCycle, Colors, Space } from '@/constants/theme';
+import {
+  RetroButton, RetroCard, RetroChip, RetroEmptyState, RetroIcon, RetroPage, RetroSection, RetroText, RetroVinyl,
+} from '@/components/retro';
 import { API_URL } from '@/constants/config';
+import { getToken } from '@/lib/token';
 
 
 export default function HomeScreen() {
@@ -14,7 +18,8 @@ export default function HomeScreen() {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`${API_URL}/events`);
+      const token = await getToken();
+      const response = await fetch(`${API_URL}/events`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await response.json();
       if (response.ok) {
         setEvents(data);
@@ -59,65 +64,51 @@ export default function HomeScreen() {
     router.replace('/' as any);
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Events</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <TouchableOpacity onPress={() => router.push('/profile' as any)}>
-            <Text style={styles.logoutText}>Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout}>
-            <Text style={styles.logoutText}>Log out</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+  const C = Colors.retro;
 
-      <ScrollView 
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.primary} />
-        }
-      >
-        <Text style={styles.sectionTitle}>Around me (Public)</Text>
-        
+  return (
+    <RetroPage
+      title="Events"
+      left={{ label: 'Log out', onPress: handleLogout, color: C.danger }}
+      right={{ label: 'Profile', onPress: () => router.push('/profile' as any) }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+      footer={<RetroButton label="+  New room" onPress={() => router.push('/create' as any)} />}
+    >
+      <RetroText variant="title" style={styles.hello}>
+        Hello,{'\n'}{events.length} {events.length === 1 ? 'room' : 'rooms'} live
+      </RetroText>
+
+      <RetroSection title="Around me (public)">
         {events.length === 0 ? (
-          <Text style={styles.emptyText}>No active room right now. Create one!</Text>
+          <RetroEmptyState illustration={<RetroVinyl size={130} />} message={'No active room right now.\nCreate one!'} />
         ) : (
-          events.map((event) => (
-            <View key={event.id} style={styles.card}>
-              <Text style={styles.cardTitle}>{event.name}</Text>
-              <Text style={styles.cardSubtitle}>
-                {event.is_private ? '🔒 Private' : '🌍 Public'} {event.location_restricted ? ' • 📍 Proximity required' : ''}
-              </Text>
-              <TouchableOpacity style={styles.joinButton} onPress={() => router.push({ pathname: '/room', params: { id: event.id } } as any)}>
-                <Text style={styles.joinButtonText}>Join</Text>
-              </TouchableOpacity>
-            </View>
+          events.map((event, index) => (
+            <RetroCard key={event.id} tone={CardToneCycle[index % CardToneCycle.length]} style={styles.card}>
+              <View style={styles.cardTop}>
+                <RetroIcon name="musical-notes" size={24} />
+                <RetroText variant="heading" style={{ flex: 1 }} numberOfLines={2}>{event.name}</RetroText>
+              </View>
+              <View style={styles.chips}>
+                <RetroChip tone="default" label={event.is_private ? 'Private' : 'Public'} />
+                {event.location_restricted ? <RetroChip tone="default" label="Proximity" /> : null}
+              </View>
+              <RetroButton
+                variant="ghost"
+                label="Join"
+                small
+                onPress={() => router.push({ pathname: '/room', params: { id: event.id } } as any)}
+              />
+            </RetroCard>
           ))
         )}
-      </ScrollView>
-
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/create' as any)}>
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+      </RetroSection>
+    </RetroPage>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: Colors.dark.text },
-  logoutText: { color: Colors.dark.textSecondary, fontSize: 16 },
-  content: { padding: 20 },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.primary, marginTop: 10, marginBottom: 15 },
-  emptyText: { color: Colors.dark.textSecondary, fontStyle: 'italic', textAlign: 'center', marginTop: 20 },
-  card: { backgroundColor: Colors.dark.backgroundElement, padding: 20, borderRadius: 10, marginBottom: 15 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 5 },
-  cardSubtitle: { fontSize: 14, color: Colors.dark.textSecondary, marginBottom: 15 },
-  joinButton: { backgroundColor: Colors.dark.primary, paddingVertical: 10, borderRadius: 20, alignItems: 'center' },
-  joinButtonText: { color: Colors.dark.background, fontWeight: 'bold' },
-  fab: { position: 'absolute', bottom: 30, right: 30, backgroundColor: Colors.dark.primary, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  fabIcon: { fontSize: 30, color: Colors.dark.background, fontWeight: 'bold' }
+  hello: { marginBottom: Space.xxl },
+  card: { marginBottom: Space.xl },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: Space.sm + 2, marginBottom: Space.md },
+  chips: { flexDirection: 'row', gap: Space.sm, marginBottom: Space.lg, flexWrap: 'wrap' },
 });

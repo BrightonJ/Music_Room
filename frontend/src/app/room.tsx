@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, FlatList, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, FlatList, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { io, Socket } from 'socket.io-client';
-import { Colors } from '../constants/theme';
+import { Colors, Layout, Space } from '@/constants/theme';
+import {
+  RetroAvatar, RetroCard, RetroCover, RetroEmptyState, RetroIconButton, RetroInput, RetroListItem, RetroPage, RetroProgress, RetroText,
+} from '@/components/retro';
 import { SERVER_URL } from '@/constants/config';
+import { getToken } from '@/lib/token';
 
 type Track = {
   id: number;
@@ -21,10 +24,7 @@ type NowPlaying = {
   durationMs: number;
 } | null;
 
-async function getToken() {
-  if (Platform.OS === 'web') return localStorage.getItem('userToken');
-  return SecureStore.getItemAsync('userToken');
-}
+const C = Colors.retro;
 
 export default function RoomScreen() {
   const router = useRouter();
@@ -144,134 +144,107 @@ export default function RoomScreen() {
   };
 
   const renderSearchResult = ({ item }: { item: any }) => (
-    <View style={styles.trackCard}>
-      {item.coverUrl && <Image source={{ uri: item.coverUrl }} style={styles.albumCover} />}
-      <View style={styles.trackInfo}>
-        <Text style={styles.trackTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.trackArtist} numberOfLines={1}>{item.artist}</Text>
-      </View>
-      <TouchableOpacity style={styles.addButton} onPress={() => handleAddTrack(item)}>
-        <Text style={styles.addButtonText}>+</Text>
-      </TouchableOpacity>
-    </View>
+    <RetroListItem
+      style={styles.item}
+      leading={<RetroCover uri={item.coverUrl} />}
+      title={item.title}
+      subtitle={item.artist}
+      trailing={<RetroIconButton icon="add" onPress={() => handleAddTrack(item)} />}
+    />
   );
 
   const progress = nowPlaying ? Math.min(elapsedMs / nowPlaying.durationMs, 1) : 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace('/home' as any)}>
-            <Text style={styles.backText}>← Leave</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Room #{id}</Text>
-          <TouchableOpacity onPress={() => router.push('/profile' as any)}><Text style={styles.settingsText}>⚙️</Text></TouchableOpacity>
-        </View>
+    <RetroPage
+      scroll={false}
+      keyboardAvoiding
+      title={`Room #${id}`}
+      left={{ label: 'Leave', onPress: () => router.replace('/home' as any), color: C.danger }}
+      right={{ label: 'Profile', onPress: () => router.push('/profile' as any) }}
+      contentStyle={styles.page}
+    >
+      {roomError ? (
+        <RetroText variant="small" color={C.danger} style={styles.roomError}>{roomError}</RetroText>
+      ) : null}
 
-        {roomError ? <Text style={styles.roomErrorText}>{roomError}</Text> : null}
+      {nowPlaying && (
+        <RetroCard tone="violet" style={styles.nowPlaying} contentStyle={styles.nowPlayingContent}>
+          <RetroCover uri={nowPlaying.track.coverUrl} size={64} />
+          <View style={{ flex: 1 }}>
+            <RetroText variant="small" color={C.accent}>NOW PLAYING</RetroText>
+            <RetroText variant="label" numberOfLines={1}>{nowPlaying.track.title}</RetroText>
+            <RetroText variant="small" numberOfLines={1} style={styles.nowPlayingArtist}>{nowPlaying.track.artist}</RetroText>
+            <RetroProgress progress={progress} />
+          </View>
+        </RetroCard>
+      )}
 
-        {nowPlaying && (
-          <View style={styles.nowPlayingCard}>
-            {nowPlaying.track.coverUrl && <Image source={{ uri: nowPlaying.track.coverUrl }} style={styles.nowPlayingCover} />}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.nowPlayingLabel}>Now playing</Text>
-              <Text style={styles.nowPlayingTitle} numberOfLines={1}>{nowPlaying.track.title}</Text>
-              <Text style={styles.nowPlayingArtist} numberOfLines={1}>{nowPlaying.track.artist}</Text>
-              <View style={styles.progressBarTrack}>
-                <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
-              </View>
-            </View>
+      <RetroInput
+        containerStyle={styles.search}
+        placeholder="Search for a track..."
+        value={searchQuery}
+        onChangeText={handleSearch}
+      />
+
+      <View style={{ flex: 1 }}>
+        {searchQuery.length >= 3 ? (
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item, index) => (item.trackId ?? item.deezerId ?? index).toString()}
+            renderItem={renderSearchResult}
+            keyboardShouldPersistTaps="handled"
+          />
+        ) : (
+          <View style={{ flex: 1 }}>
+            <RetroText variant="heading" style={styles.sectionTitle}>Up next</RetroText>
+            {queue.length === 0 ? (
+              <RetroEmptyState icon="musical-notes" message={'The playlist is empty.\nSearch for a track!'} />
+            ) : (
+              <FlatList
+                data={queue}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item, index }) => {
+                  const myVote = myVotes[item.id] || 0;
+                  return (
+                    <RetroListItem
+                      style={styles.item}
+                      leading={
+                        <>
+                          <RetroAvatar label={String(index + 1)} size={24} />
+                          <RetroCover uri={item.cover_url} />
+                        </>
+                      }
+                      title={item.title}
+                      subtitle={item.artist}
+                      trailing={
+                        <View style={styles.votes}>
+                          <RetroIconButton size="sm" icon="arrow-up" active={myVote === 1} activeColor={C.success} onPress={() => handleVote(item.id, 1)} />
+                          <RetroText variant="label" style={styles.voteCount}>{item.votes}</RetroText>
+                          <RetroIconButton size="sm" icon="arrow-down" active={myVote === -1} activeColor={C.primary} onPress={() => handleVote(item.id, -1)} />
+                        </View>
+                      }
+                    />
+                  );
+                }}
+              />
+            )}
           </View>
         )}
-
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search for a track..."
-            placeholderTextColor={Colors.dark.textSecondary}
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-        </View>
-
-        <View style={styles.content}>
-          {searchQuery.length >= 3 ? (
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item) => item.trackId.toString()}
-              renderItem={renderSearchResult}
-              keyboardShouldPersistTaps="handled"
-            />
-          ) : (
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Up next</Text>
-              {queue.length === 0 ? (
-                <Text style={styles.emptyQueueText}>The playlist is empty. Search for a track!</Text>
-              ) : (
-                <FlatList
-                  data={queue}
-                  keyExtractor={(item) => item.deezerId.toString()}
-                  renderItem={({ item }) => {
-                    const myVote = myVotes[item.id] || 0;
-                    return (
-                      <View style={styles.trackCard}>
-                        {item.cover_url && <Image source={{ uri: item.cover_url }} style={styles.albumCover} />}
-                        <View style={styles.trackInfo}>
-                          <Text style={styles.trackTitle}>{item.title}</Text>
-                          <Text style={styles.trackArtist}>{item.artist}</Text>
-                        </View>
-                        <View style={styles.voteContainer}>
-                          <TouchableOpacity onPress={() => handleVote(item.id, 1)} style={styles.voteBtn}>
-                            <Text style={[styles.voteIcon, myVote === 1 && styles.voteIconActive]}>👍</Text>
-                          </TouchableOpacity>
-                          <Text style={styles.voteCount}>{item.votes}</Text>
-                          <TouchableOpacity onPress={() => handleVote(item.id, -1)} style={styles.voteBtn}>
-                            <Text style={[styles.voteIcon, myVote === -1 && styles.voteIconActive]}>👎</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  }}
-                />
-              )}
-            </View>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+    </RetroPage>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
-  backText: { color: Colors.dark.danger, fontSize: 16, fontWeight: 'bold' },
-  settingsText: { fontSize: 20 },
-  roomErrorText: { color: Colors.dark.danger, textAlign: 'center', paddingVertical: 8, fontSize: 13, fontWeight: 'bold' },
-  nowPlayingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.backgroundElement, margin: 15, marginBottom: 0, padding: 12, borderRadius: 12 },
-  nowPlayingCover: { width: 56, height: 56, borderRadius: 8, marginRight: 12, backgroundColor: Colors.dark.backgroundSelected },
-  nowPlayingLabel: { color: Colors.dark.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 2, textTransform: 'uppercase' },
-  nowPlayingTitle: { color: Colors.dark.text, fontSize: 16, fontWeight: 'bold' },
-  nowPlayingArtist: { color: Colors.dark.textSecondary, fontSize: 13, marginBottom: 6 },
-  progressBarTrack: { height: 3, backgroundColor: Colors.dark.backgroundSelected, borderRadius: 2, overflow: 'hidden' },
-  progressBarFill: { height: 3, backgroundColor: Colors.dark.primary },
-  searchContainer: { padding: 15, backgroundColor: Colors.dark.background },
-  searchInput: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, padding: 15, borderRadius: 12, fontSize: 16 },
-  content: { flex: 1, paddingHorizontal: 15 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 15 },
-  trackCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.backgroundElement, padding: 10, borderRadius: 10, marginBottom: 10 },
-  albumCover: { width: 50, height: 50, borderRadius: 8, marginRight: 15, backgroundColor: Colors.dark.backgroundSelected },
-  trackInfo: { flex: 1 },
-  trackTitle: { color: Colors.dark.text, fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  trackArtist: { color: Colors.dark.textSecondary, fontSize: 14 },
-  addButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.dark.primary, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
-  addButtonText: { color: Colors.dark.background, fontSize: 24, fontWeight: 'bold', lineHeight: 26 },
-  emptyQueueText: { color: Colors.dark.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 40 },
-  voteContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.background, borderRadius: 20, paddingHorizontal: 5 },
-  voteBtn: { padding: 8 },
-  voteIcon: { fontSize: 16, opacity: 0.4 },
-  voteIconActive: { opacity: 1 },
-  voteCount: { color: Colors.dark.text, fontWeight: 'bold', fontSize: 16, marginHorizontal: 5, minWidth: 20, textAlign: 'center' },
+  page: { paddingHorizontal: Layout.gutter },
+  roomError: { textAlign: 'center', paddingVertical: Space.sm },
+  nowPlaying: { marginBottom: Space.lg },
+  nowPlayingContent: { flexDirection: 'row', alignItems: 'center', gap: Space.md + 2 },
+  nowPlayingArtist: { opacity: 0.85, marginBottom: Space.sm + 2 },
+  search: { marginBottom: Space.lg },
+  sectionTitle: { marginBottom: Space.md + 2 },
+  item: { marginBottom: Space.md + 2 },
+  votes: { alignItems: 'center', gap: Space.xs },
+  voteCount: { minWidth: 24, textAlign: 'center' },
 });

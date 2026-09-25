@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform, ScrollView } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as Facebook from 'expo-auth-session/providers/facebook';
-import { Colors } from '../constants/theme';
-import { API_URL } from '@/constants/config';
+import { Space } from '@/constants/theme';
+import { RetroBanner, RetroBrand, RetroButton, RetroDivider, RetroInput, RetroLink, RetroPage } from '@/components/retro';
+import { API_URL, GOOGLE_CLIENT_IDS, FACEBOOK_APP_ID } from '@/constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,13 +29,9 @@ export default function AuthScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalMessage, setGlobalMessage] = useState({ type: '', text: '' });
 
-  const [requestG, responseG, promptAsyncG] = Google.useAuthRequest({
-    webClientId: 'TON_GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com',
-  });
+  const [requestG, responseG, promptAsyncG] = Google.useAuthRequest(GOOGLE_CLIENT_IDS);
 
-  const [requestF, responseF, promptAsyncF] = Facebook.useAuthRequest({
-    clientId: 'TON_FACEBOOK_APP_ID',
-  });
+  const [requestF, responseF, promptAsyncF] = Facebook.useAuthRequest({ clientId: FACEBOOK_APP_ID });
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -174,83 +171,59 @@ export default function AuthScreen() {
     setBirthDateWeb(formatted);
   };
 
+  const clearError = (field: string) => setErrors({ ...errors, [field]: '' });
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <RetroPage centered>
+      <RetroBrand subtitle={isLoginMode ? 'Log in to join the event' : 'Create a complete and secure profile'} />
 
-        <Text style={styles.title}>Music Room</Text>
-        <Text style={styles.subtitle}>
-          {isLoginMode ? "Log in to join the event" : "Create a complete and secure profile"}
-        </Text>
-
-        {globalMessage.text ? (
-          <Text style={[styles.globalMessage, globalMessage.type === 'error' ? styles.errorText : styles.successText]}>
-            {globalMessage.text}
-          </Text>
-        ) : null}
+      <View style={styles.form}>
+        {globalMessage.text ? <RetroBanner type={globalMessage.type} text={globalMessage.text} /> : null}
 
         {!isLoginMode && (
           <>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, errors.username ? styles.inputError : null]}
-                placeholder="Username"
-                placeholderTextColor={Colors.dark.textSecondary}
-                value={username}
-                onChangeText={(t) => { setUsername(t); setErrors({...errors, username: ''}); }}
-                autoCapitalize="none"
-              />
-              {errors.username ? <Text style={styles.inlineError}>{errors.username}</Text> : null}
-            </View>
+            <RetroInput
+              error={errors.username}
+              placeholder="Username"
+              value={username}
+              onChangeText={(t) => { setUsername(t); clearError('username'); }}
+              autoCapitalize="none"
+            />
 
             <View style={styles.row}>
-              <View style={styles.halfInputContainer}>
-                <TextInput
-                  style={[styles.input, errors.firstName ? styles.inputError : null]}
-                  placeholder="First name"
-                  placeholderTextColor={Colors.dark.textSecondary}
-                  value={firstName}
-                  onChangeText={(t) => { setFirstName(t); setErrors({...errors, firstName: ''}); }}
-                />
-                {errors.firstName ? <Text style={styles.inlineError}>{errors.firstName}</Text> : null}
-              </View>
-              <View style={styles.halfInputContainer}>
-                <TextInput
-                  style={[styles.input, errors.lastName ? styles.inputError : null]}
-                  placeholder="Last name"
-                  placeholderTextColor={Colors.dark.textSecondary}
-                  value={lastName}
-                  onChangeText={(t) => { setLastName(t); setErrors({...errors, lastName: ''}); }}
-                />
-                {errors.lastName ? <Text style={styles.inlineError}>{errors.lastName}</Text> : null}
-              </View>
+              <RetroInput
+                containerStyle={styles.half}
+                error={errors.firstName}
+                placeholder="First name"
+                value={firstName}
+                onChangeText={(t) => { setFirstName(t); clearError('firstName'); }}
+              />
+              <RetroInput
+                containerStyle={styles.half}
+                error={errors.lastName}
+                placeholder="Last name"
+                value={lastName}
+                onChangeText={(t) => { setLastName(t); clearError('lastName'); }}
+              />
             </View>
 
             {Platform.OS === 'web' ? (
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[styles.input, errors.birthDate ? styles.inputError : null]}
-                  placeholder="Date of birth (DD-MM-YYYY)"
-                  placeholderTextColor={Colors.dark.textSecondary}
-                  value={birthDateWeb}
-                  onChangeText={(t) => { handleDateChangeWeb(t); setErrors({...errors, birthDate: ''}); }}
-                  maxLength={10}
-                  keyboardType="number-pad"
-                />
-                {errors.birthDate ? <Text style={styles.inlineError}>{errors.birthDate}</Text> : null}
-              </View>
+              <RetroInput
+                error={errors.birthDate}
+                placeholder="Date of birth (DD-MM-YYYY)"
+                value={birthDateWeb}
+                onChangeText={(t) => { handleDateChangeWeb(t); clearError('birthDate'); }}
+                maxLength={10}
+                keyboardType="number-pad"
+              />
             ) : (
-              <View style={styles.inputWrapper}>
-                <TouchableOpacity
-                  style={[styles.input, errors.birthDate ? styles.inputError : null, { justifyContent: 'center' }]}
+              <View>
+                <RetroInput
+                  error={errors.birthDate}
+                  placeholder="Date of birth"
+                  value={birthDate ? birthDate.toLocaleDateString('en-GB') : ''}
                   onPress={() => setShowDatePicker(true)}
-                >
-                  <Text style={{ color: birthDate ? Colors.dark.text : Colors.dark.textSecondary, fontSize: 16 }}>
-                    {birthDate ? birthDate.toLocaleDateString('en-GB') : "Date of birth"}
-                  </Text>
-                </TouchableOpacity>
-                {errors.birthDate ? <Text style={styles.inlineError}>{errors.birthDate}</Text> : null}
-
+                />
                 {showDatePicker && (
                   <DateTimePicker
                     value={birthDate || new Date(2000, 0, 1)}
@@ -261,7 +234,7 @@ export default function AuthScreen() {
                       setShowDatePicker(Platform.OS === 'ios');
                       if (date) {
                         setBirthDate(date);
-                        setErrors({...errors, birthDate: ''});
+                        clearError('birthDate');
                       }
                     }}
                   />
@@ -271,107 +244,57 @@ export default function AuthScreen() {
           </>
         )}
 
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={[styles.input, errors.email ? styles.inputError : null]}
-            placeholder="Email address"
-            placeholderTextColor={Colors.dark.textSecondary}
-            value={email}
-            onChangeText={(t) => { setEmail(t); setErrors({...errors, email: ''}); }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          {errors.email ? <Text style={styles.inlineError}>{errors.email}</Text> : null}
-        </View>
+        <RetroInput
+          error={errors.email}
+          placeholder="Email address"
+          value={email}
+          onChangeText={(t) => { setEmail(t); clearError('email'); }}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
 
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={[styles.input, errors.password ? styles.inputError : null]}
-            placeholder="Password"
-            placeholderTextColor={Colors.dark.textSecondary}
-            value={password}
-            onChangeText={(t) => { setPassword(t); setErrors({...errors, password: ''}); }}
-            secureTextEntry
-          />
-          {errors.password ? <Text style={styles.inlineError}>{errors.password}</Text> : null}
-        </View>
+        <RetroInput
+          error={errors.password}
+          placeholder="Password"
+          value={password}
+          onChangeText={(t) => { setPassword(t); clearError('password'); }}
+          secureTextEntry
+        />
 
         {!isLoginMode && (
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={[styles.input, errors.confirmPassword ? styles.inputError : null]}
-              placeholder="Confirm password"
-              placeholderTextColor={Colors.dark.textSecondary}
-              value={confirmPassword}
-              onChangeText={(t) => { setConfirmPassword(t); setErrors({...errors, confirmPassword: ''}); }}
-              secureTextEntry
-            />
-            {errors.confirmPassword ? <Text style={styles.inlineError}>{errors.confirmPassword}</Text> : null}
-          </View>
+          <RetroInput
+            error={errors.confirmPassword}
+            placeholder="Confirm password"
+            value={confirmPassword}
+            onChangeText={(t) => { setConfirmPassword(t); clearError('confirmPassword'); }}
+            secureTextEntry
+          />
         )}
 
-        {isLoginMode && (
-          <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordLink}>
-            <Text style={styles.forgotPasswordTextBtn}>Forgot password?</Text>
-          </TouchableOpacity>
-        )}
+        {isLoginMode && <RetroLink label="Forgot password?" onPress={handleForgotPassword} style={styles.forgot} />}
 
-        <TouchableOpacity style={styles.loginButton} onPress={handleAuth}>
-          <Text style={styles.loginButtonText}>{isLoginMode ? "LOG IN" : "CREATE MY ACCOUNT"}</Text>
-        </TouchableOpacity>
+        <RetroButton label={isLoginMode ? 'Log in' : 'Create my account'} onPress={handleAuth} />
 
-        <View style={styles.dividerContainer}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.divider} />
-        </View>
+        <RetroDivider label="or" />
 
-        <TouchableOpacity style={[styles.socialButton, {backgroundColor: '#DB4437'}]} onPress={() => promptAsyncG()}>
-          <Text style={styles.socialButtonText}>
-            {isLoginMode ? "Log in with Google" : "Sign up with Google"}
-          </Text>
-        </TouchableOpacity>
+        <RetroButton variant="ghost" label={isLoginMode ? 'Log in with Google' : 'Sign up with Google'} onPress={() => promptAsyncG()} />
+        <RetroButton variant="ghost" label={isLoginMode ? 'Log in with Facebook' : 'Sign up with Facebook'} onPress={() => promptAsyncF()} />
 
-        <TouchableOpacity style={[styles.socialButton, {backgroundColor: '#4267B2'}]} onPress={() => promptAsyncF()}>
-          <Text style={styles.socialButtonText}>
-            {isLoginMode ? "Log in with Facebook" : "Sign up with Facebook"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.forgotPassword} onPress={() => { setIsLoginMode(!isLoginMode); setErrors({}); setGlobalMessage({ type: '', text: '' }); }}>
-          <Text style={styles.forgotPasswordText}>
-            {isLoginMode ? "New here? Create an account" : "Already have an account? Log in"}
-          </Text>
-        </TouchableOpacity>
-
-      </ScrollView>
-    </SafeAreaView>
+        <RetroLink
+          tone="muted"
+          label={isLoginMode ? 'New here? Create an account' : 'Already have an account? Log in'}
+          onPress={() => { setIsLoginMode(!isLoginMode); setErrors({}); setGlobalMessage({ type: '', text: '' }); }}
+          style={styles.switchMode}
+        />
+      </View>
+    </RetroPage>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
-  content: { flexGrow: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 42, fontWeight: 'bold', color: Colors.dark.primary, textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: Colors.dark.textSecondary, textAlign: 'center', marginBottom: 24 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 16 },
-  halfInputContainer: { width: '48%' },
-  inputWrapper: { marginBottom: 16, width: '100%' },
-  input: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 8, fontSize: 16, borderWidth: 1, borderColor: 'transparent' },
-  inputError: { borderColor: Colors.dark.danger },
-  inlineError: { color: Colors.dark.danger, fontSize: 12, marginTop: 4, marginLeft: 4, fontWeight: 'bold' },
-  globalMessage: { fontSize: 14, textAlign: 'center', marginBottom: 16, fontWeight: 'bold', padding: 10, borderRadius: 8 },
-  errorText: { color: Colors.dark.danger, backgroundColor: 'rgba(255, 68, 68, 0.1)' },
-  successText: { color: Colors.dark.primary, backgroundColor: 'rgba(29, 185, 84, 0.1)' },
-  forgotPasswordLink: { alignSelf: 'flex-end', marginBottom: 16 },
-  forgotPasswordTextBtn: { color: Colors.dark.primary, fontSize: 14, fontWeight: 'bold' },
-  loginButton: { backgroundColor: Colors.dark.primary, paddingVertical: 16, borderRadius: 50, alignItems: 'center' },
-  loginButtonText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
-  forgotPassword: { marginTop: 24, alignItems: 'center' },
-  forgotPasswordText: { color: Colors.dark.textSecondary, fontSize: 14, textDecorationLine: 'underline' },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
-  divider: { flex: 1, height: 1, backgroundColor: Colors.dark.backgroundElement },
-  dividerText: { color: Colors.dark.textSecondary, paddingHorizontal: 10, fontSize: 12 },
-  socialButton: { paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
-  socialButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  form: { marginTop: Space.xxl, gap: Space.lg },
+  row: { flexDirection: 'row', gap: Space.md },
+  half: { flex: 1 },
+  forgot: { alignSelf: 'flex-end' },
+  switchMode: { alignSelf: 'center', marginTop: Space.lg },
 });
