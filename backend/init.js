@@ -6,7 +6,7 @@ const createTables = async () => {
     process.exit(1);
   }
 
-  const dropQuery = `DROP TABLE IF EXISTS event_playback, track_votes, event_invitations, friendships, tracks, events, users CASCADE;`;
+  const dropQuery = `DROP TABLE IF EXISTS activity_logs, event_delegations, devices, event_playback, track_votes, event_invitations, friendships, tracks, events, users CASCADE;`;
 
   const usersTable = `
     CREATE TABLE users (
@@ -40,6 +40,11 @@ const createTables = async () => {
       name VARCHAR(255) NOT NULL,
       is_private BOOLEAN DEFAULT false,
       location_restricted BOOLEAN DEFAULT false,
+      location_lat DOUBLE PRECISION,
+      location_lng DOUBLE PRECISION,
+      location_radius_m INTEGER DEFAULT 100,
+      vote_window_start TIME,
+      vote_window_end TIME,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
@@ -88,6 +93,7 @@ const createTables = async () => {
       event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       invited_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(20) DEFAULT 'pending',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE (event_id, user_id)
     );
@@ -99,6 +105,44 @@ const createTables = async () => {
       current_track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
       started_at TIMESTAMP,
       duration_ms INTEGER
+    );
+  `;
+
+  const devicesTable = `
+    CREATE TABLE devices (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      device_uid VARCHAR(255) NOT NULL,
+      platform VARCHAR(50),
+      device_name VARCHAR(255),
+      last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, device_uid)
+    );
+  `;
+
+  const eventDelegationsTable = `
+    CREATE TABLE event_delegations (
+      id SERIAL PRIMARY KEY,
+      event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      device_id INTEGER REFERENCES devices(id) ON DELETE CASCADE,
+      granted_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (event_id, user_id)
+    );
+  `;
+
+  const activityLogsTable = `
+    CREATE TABLE activity_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      action VARCHAR(150) NOT NULL,
+      platform VARCHAR(50),
+      device_name VARCHAR(255),
+      app_version VARCHAR(50),
+      metadata JSONB,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
 
@@ -114,6 +158,9 @@ const createTables = async () => {
     await pool.query(friendshipsTable);
     await pool.query(eventInvitationsTable);
     await pool.query(eventPlaybackTable);
+    await pool.query(devicesTable);
+    await pool.query(eventDelegationsTable);
+    await pool.query(activityLogsTable);
     console.log("Tables ready!");
   } catch (err) {
     console.error("Error:", err);
