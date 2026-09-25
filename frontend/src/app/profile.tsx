@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Colors } from '../constants/theme';
+import { Colors, Space, type Tone } from '@/constants/theme';
+import {
+  RetroAvatar, RetroBanner, RetroButton, RetroCard, RetroInput, RetroPage, RetroTagButton, RetroText,
+} from '@/components/retro';
 import { API_URL } from '@/constants/config';
+import { getToken } from '@/lib/token';
 
 type PrivacyLevel = 'public' | 'friends' | 'private';
 
@@ -19,11 +22,6 @@ const levelLabel: Record<PrivacyLevel, string> = {
   friends: 'Friends',
   private: 'Private',
 };
-
-async function getToken() {
-  if (Platform.OS === 'web') return localStorage.getItem('userToken');
-  return SecureStore.getItemAsync('userToken');
-}
 
 function parseIsoDate(value: string | null): { y: number; m: number; d: number } | null {
   if (!value) return null;
@@ -162,138 +160,107 @@ export default function ProfileScreen() {
     }
   };
 
+  const levelTone: Record<PrivacyLevel, Tone> = { public: 'green', friends: 'yellow', private: 'coral' };
+
+  const privacyTag = (field: string) => (
+    <RetroTagButton
+      label={levelLabel[privacySettings[field]]}
+      tone={levelTone[privacySettings[field]]}
+      onPress={() => cyclePrivacy(field)}
+    />
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.subtitle}>Loading...</Text>
-      </SafeAreaView>
+      <RetroPage title="My profile" left={{ label: 'Back', onPress: () => router.back() }}>
+        <RetroText variant="label" style={{ textAlign: 'center', marginTop: Space.xxxl * 2 }}>Loading...</RetroText>
+      </RetroPage>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.cancelText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Profile</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <RetroPage title="My profile" left={{ label: 'Back', onPress: () => router.back() }}>
+      {globalMessage.text ? <RetroBanner type={globalMessage.type} text={globalMessage.text} /> : null}
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {globalMessage.text ? (
-          <Text style={[styles.globalMessage, globalMessage.type === 'error' ? styles.errorText : styles.successText]}>
-            {globalMessage.text}
-          </Text>
-        ) : null}
+      <RetroCard tone="violet" style={{ marginBottom: Space.xxl }} contentStyle={styles.idCard}>
+        <RetroAvatar label={(username || '?').charAt(0).toUpperCase()} />
+        <View style={{ flex: 1 }}>
+          <RetroText variant="heading" numberOfLines={1}>{username}</RetroText>
+          <RetroText variant="small" numberOfLines={1}>{email}</RetroText>
+        </View>
+      </RetroCard>
 
-        <Text style={styles.readOnlyLabel}>Username</Text>
-        <Text style={styles.readOnlyValue}>{username}</Text>
-
-        <Text style={styles.readOnlyLabel}>Email</Text>
-        <Text style={styles.readOnlyValue}>{email}</Text>
-
+      <View style={styles.form}>
         <View style={styles.fieldRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>First name</Text>
-            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholderTextColor={Colors.dark.textSecondary} />
-          </View>
-          <TouchableOpacity style={styles.privacyPill} onPress={() => cyclePrivacy('first_name')}>
-            <Text style={styles.privacyPillText}>{levelLabel[privacySettings.first_name]}</Text>
-          </TouchableOpacity>
+          <RetroInput label="First name" containerStyle={styles.field} value={firstName} onChangeText={setFirstName} />
+          {privacyTag('first_name')}
         </View>
 
         <View style={styles.fieldRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Last name</Text>
-            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholderTextColor={Colors.dark.textSecondary} />
-          </View>
-          <TouchableOpacity style={styles.privacyPill} onPress={() => cyclePrivacy('last_name')}>
-            <Text style={styles.privacyPillText}>{levelLabel[privacySettings.last_name]}</Text>
-          </TouchableOpacity>
+          <RetroInput label="Last name" containerStyle={styles.field} value={lastName} onChangeText={setLastName} />
+          {privacyTag('last_name')}
         </View>
 
         <View style={styles.fieldRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Date of birth</Text>
-            {Platform.OS === 'web' ? (
-              <TextInput
-                style={styles.input}
-                placeholder="DD-MM-YYYY"
-                placeholderTextColor={Colors.dark.textSecondary}
-                value={birthDateWeb}
-                onChangeText={handleDateChangeWeb}
-                maxLength={10}
-                keyboardType="number-pad"
-              />
-            ) : (
-              <>
-                <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowDatePicker(true)}>
-                  <Text style={{ color: birthDate ? Colors.dark.text : Colors.dark.textSecondary, fontSize: 16 }}>
-                    {birthDate ? birthDate.toLocaleDateString('en-GB') : "Not set"}
-                  </Text>
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={birthDate || new Date(2000, 0, 1)}
-                    mode="date"
-                    display="spinner"
-                    maximumDate={new Date()}
-                    onChange={(e, date) => {
-                      setShowDatePicker(Platform.OS === 'ios');
-                      if (date) setBirthDate(date);
-                    }}
-                  />
-                )}
-              </>
-            )}
-          </View>
-          <TouchableOpacity style={styles.privacyPill} onPress={() => cyclePrivacy('birth_date')}>
-            <Text style={styles.privacyPillText}>{levelLabel[privacySettings.birth_date]}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.fieldRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Music preferences</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="rock, Daft Punk, jazz"
-              placeholderTextColor={Colors.dark.textSecondary}
-              value={musicPreferencesText}
-              onChangeText={setMusicPreferencesText}
+          {Platform.OS === 'web' ? (
+            <RetroInput
+              label="Date of birth"
+              containerStyle={styles.field}
+              placeholder="DD-MM-YYYY"
+              value={birthDateWeb}
+              onChangeText={handleDateChangeWeb}
+              maxLength={10}
+              keyboardType="number-pad"
             />
-          </View>
-          <TouchableOpacity style={styles.privacyPill} onPress={() => cyclePrivacy('music_preferences')}>
-            <Text style={styles.privacyPillText}>{levelLabel[privacySettings.music_preferences]}</Text>
-          </TouchableOpacity>
+          ) : (
+            <View style={styles.field}>
+              <RetroInput
+                label="Date of birth"
+                placeholder="Not set"
+                value={birthDate ? birthDate.toLocaleDateString('en-GB') : ''}
+                onPress={() => setShowDatePicker(true)}
+              />
+              {showDatePicker && (
+                <DateTimePicker
+                  value={birthDate || new Date(2000, 0, 1)}
+                  mode="date"
+                  display="spinner"
+                  maximumDate={new Date()}
+                  onChange={(e, date) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (date) setBirthDate(date);
+                  }}
+                />
+              )}
+            </View>
+          )}
+          {privacyTag('birth_date')}
         </View>
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>SAVE CHANGES</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+        <View style={styles.fieldRow}>
+          <RetroInput
+            label="Music preferences"
+            containerStyle={styles.field}
+            placeholder="rock, Daft Punk, jazz"
+            value={musicPreferencesText}
+            onChangeText={setMusicPreferencesText}
+          />
+          {privacyTag('music_preferences')}
+        </View>
+
+        <RetroText variant="small" color={Colors.retro.textSecondary}>
+          Tap a tag to choose who can see a field: everyone, friends only, or just you.
+        </RetroText>
+
+        <RetroButton label="Save changes" onPress={handleSave} />
+      </View>
+    </RetroPage>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundElement },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
-  cancelText: { color: Colors.dark.textSecondary, fontSize: 16 },
-  content: { padding: 20 },
-  subtitle: { fontSize: 16, color: Colors.dark.textSecondary, textAlign: 'center', marginTop: 40 },
-  readOnlyLabel: { color: Colors.dark.textSecondary, fontSize: 12, marginBottom: 2, marginTop: 8 },
-  readOnlyValue: { color: Colors.dark.text, fontSize: 16, marginBottom: 12 },
-  fieldRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 16 },
-  label: { color: Colors.dark.text, fontSize: 14, marginBottom: 6, fontWeight: 'bold' },
-  input: { backgroundColor: Colors.dark.backgroundElement, color: Colors.dark.text, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 8, fontSize: 16 },
-  privacyPill: { backgroundColor: Colors.dark.backgroundSelected, paddingHorizontal: 12, paddingVertical: 14, borderRadius: 8 },
-  privacyPillText: { color: Colors.dark.primary, fontSize: 12, fontWeight: 'bold' },
-  globalMessage: { fontSize: 14, textAlign: 'center', marginBottom: 16, fontWeight: 'bold', padding: 10, borderRadius: 8 },
-  errorText: { color: Colors.dark.danger, backgroundColor: 'rgba(255, 68, 68, 0.1)' },
-  successText: { color: Colors.dark.primary, backgroundColor: 'rgba(29, 185, 84, 0.1)' },
-  saveButton: { backgroundColor: Colors.dark.primary, paddingVertical: 16, borderRadius: 50, alignItems: 'center', marginTop: 12 },
-  saveButtonText: { color: Colors.dark.background, fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  idCard: { flexDirection: 'row', alignItems: 'center', gap: Space.md + 2 },
+  form: { gap: Space.xl },
+  fieldRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Space.md },
+  field: { flex: 1 },
 });
