@@ -6,7 +6,7 @@ const config = getDefaultConfig(__dirname);
 config.resolver.unstable_conditionNames = ['browser', 'require', 'react-native'];
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  ws: path.resolve(__dirname, 'shims/ws-shim.js'),
+  ws: path.resolve(__dirname, 'shims/ws-shims.js'),
 };
 
 module.exports = config;
