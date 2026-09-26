@@ -9,6 +9,7 @@ const invitationRoutes = require('./routes/invitations');
 const friendRoutes = require('./routes/friends');
 const profileRoutes = require('./routes/profile');
 const searchRoutes = require('./routes/search');
+const deviceRoutes = require('./routes/devices');
 
 const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
 
@@ -28,5 +29,6 @@ app.use('/api', invitationRoutes);
 app.use('/api', friendRoutes);
 app.use('/api', profileRoutes);
 app.use('/api', searchRoutes);
+app.use('/api', deviceRoutes);
 
 module.exports = { app, allowedOrigins };

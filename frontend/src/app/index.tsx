@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -27,6 +27,10 @@ export default function AuthScreen() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalMessage, setGlobalMessage] = useState({ type: '', text: '' });
+
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotModalMessage, setForgotModalMessage] = useState('');
 
   const [requestG, responseG, promptAsyncG] = Google.useAuthRequest({
     webClientId: 'TON_GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com',
@@ -70,11 +74,11 @@ export default function AuthScreen() {
       newErrors.email = "Invalid email format";
     }
 
-    const passRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+    const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
     if (!password) {
       newErrors.password = "Password required";
     } else if (!passRegex.test(password)) {
-      newErrors.password = "8 characters minimum, at least 1 letter and 1 digit";
+      newErrors.password = "8 chars min, with uppercase, lowercase, a digit and a special character";
     }
 
     if (!confirmPassword) {
@@ -125,8 +129,13 @@ export default function AuthScreen() {
 
       if (response.ok) {
         if (isLoginMode) {
-          if (Platform.OS === 'web') localStorage.setItem('userToken', data.token);
-          else await SecureStore.setItemAsync('userToken', data.token);
+          if (Platform.OS === 'web') {
+            localStorage.setItem('userToken', data.token);
+            localStorage.setItem('userId', String(data.user.id));
+          } else {
+            await SecureStore.setItemAsync('userToken', data.token);
+            await SecureStore.setItemAsync('userId', String(data.user.id));
+          }
           router.replace('/home' as any);
         } else {
           setGlobalMessage({ type: 'success', text: data.message });
@@ -143,27 +152,28 @@ export default function AuthScreen() {
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setErrors({ email: "Please enter your email" });
-      setGlobalMessage({ type: 'error', text: "Enter your email to reset your password." });
+  const handleForgotPasswordSubmit = async () => {
+    if (!forgotEmail) {
+      setForgotModalMessage("Please enter your email");
       return;
     }
     try {
       const response = await fetch(`${API_URL}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: forgotEmail }),
       });
       const data = await response.json();
-      if (response.ok) {
-        setGlobalMessage({ type: 'success', text: "Password reset email sent." });
-      } else {
-        setGlobalMessage({ type: 'error', text: data.error || "Error while resetting the password." });
-      }
+      setForgotModalMessage(data.message || "If this account is registered, you will receive an email to reset your password.");
     } catch (error) {
-      setGlobalMessage({ type: 'error', text: "Unable to reach the server." });
+      setForgotModalMessage("Unable to reach the server.");
     }
+  };
+
+  const closeForgotModal = () => {
+    setShowForgotModal(false);
+    setForgotEmail('');
+    setForgotModalMessage('');
   };
 
   const handleDateChangeWeb = (text: string) => {
@@ -311,7 +321,7 @@ export default function AuthScreen() {
         )}
 
         {isLoginMode && (
-          <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordLink}>
+          <TouchableOpacity onPress={() => setShowForgotModal(true)} style={styles.forgotPasswordLink}>
             <Text style={styles.forgotPasswordTextBtn}>Forgot password?</Text>
           </TouchableOpacity>
         )}
@@ -345,6 +355,31 @@ export default function AuthScreen() {
         </TouchableOpacity>
 
       </ScrollView>
+
+      <Modal visible={showForgotModal} transparent animationType="fade" onRequestClose={closeForgotModal}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Reset your password</Text>
+            <Text style={styles.modalSubtitle}>Enter the email associated with your account.</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email address"
+              placeholderTextColor={Colors.dark.textSecondary}
+              value={forgotEmail}
+              onChangeText={setForgotEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {forgotModalMessage ? <Text style={styles.modalMessage}>{forgotModalMessage}</Text> : null}
+            <TouchableOpacity style={styles.loginButton} onPress={handleForgotPasswordSubmit}>
+              <Text style={styles.loginButtonText}>SEND RESET LINK</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCloseButton} onPress={closeForgotModal}>
+              <Text style={styles.forgotPasswordTextBtn}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -374,4 +409,10 @@ const styles = StyleSheet.create({
   dividerText: { color: Colors.dark.textSecondary, paddingHorizontal: 10, fontSize: 12 },
   socialButton: { paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
   socialButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: Colors.dark.background, borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 6 },
+  modalSubtitle: { fontSize: 13, color: Colors.dark.textSecondary, marginBottom: 16 },
+  modalMessage: { fontSize: 13, color: Colors.dark.primary, marginBottom: 12, fontWeight: 'bold' },
+  modalCloseButton: { marginTop: 16, alignItems: 'center' },
 });

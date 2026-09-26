@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../constants/theme';
 import { API_URL } from '@/constants/config';
+import { buildAuthHeaders } from '@/utils/api';
 
 type PrivacyLevel = 'public' | 'friends' | 'private';
 
@@ -61,7 +62,7 @@ export default function ProfileScreen() {
     }
     try {
       const response = await fetch(`${API_URL}/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(token, false),
       });
       const data = await response.json();
       if (response.ok) {
@@ -137,10 +138,7 @@ export default function ProfileScreen() {
     try {
       const response = await fetch(`${API_URL}/profile`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: buildAuthHeaders(token),
         body: JSON.stringify({
           firstName,
           lastName,
@@ -177,7 +175,9 @@ export default function ProfileScreen() {
           <Text style={styles.cancelText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Profile</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => router.push('/devices' as any)}>
+          <Text style={styles.cancelText}>Devices</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
