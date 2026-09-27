@@ -15,7 +15,7 @@ export default function MemberProfileModal({ visible, profile, error, onClose }:
           {error ? (
             <Text style={styles.modalSubtitle}>{error}</Text>
           ) : !profile ? (
-            <ActivityIndicator color={Colors.dark.primary} />
+            <ActivityIndicator color={Colors.retro.primary} />
           ) : (
             <>
               <Text style={styles.modalTitle}>{profile.username}</Text>

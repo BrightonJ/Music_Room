@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
@@ -8,6 +7,7 @@ import ScreenHeader from '@/components/ScreenHeader';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { storage } from '@/lib/storage';
 import { formatDateTime } from '@/lib/dates';
+import { RetroScreen } from '@/components/retro';
 
 type Device = {
   id: number;
@@ -71,10 +71,10 @@ export default function DevicesScreen() {
   };
 
   return (
-    <SafeAreaView style={ui.screen}>
+    <RetroScreen>
       <ScreenHeader title="Devices" left={{ label: 'Back', onPress: () => router.back() }} />
       {loading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={Colors.retro.primary} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={devices}
@@ -102,12 +102,12 @@ export default function DevicesScreen() {
                 </Text>
               </View>
               <TouchableOpacity style={ui.smallButtonMuted} onPress={() => remove(item)}>
-                <Text style={[ui.smallButtonMutedText, { color: Colors.dark.danger }]}>Remove</Text>
+                <Text style={[ui.smallButtonMutedText, { color: Colors.retro.danger }]}>Remove</Text>
               </TouchableOpacity>
             </View>
           )}
         />
       )}
-    </SafeAreaView>
+    </RetroScreen>
   );
 }

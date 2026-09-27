@@ -1,20 +1,26 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Border, Colors, Layout, Radius, Space, Type } from '@/constants/theme';
 
 type Action = { label: string; onPress: () => void; tone?: 'primary' | 'danger' | 'muted' };
 
 type Props = { title: string; left?: Action; right?: Action };
 
-const toneColor = (tone: Action['tone']) =>
-  tone === 'danger' ? Colors.dark.danger : tone === 'muted' ? Colors.dark.textSecondary : Colors.dark.primary;
+const C = Colors.retro;
+const toneColor = (tone: Action['tone']) => (tone === 'danger' ? C.danger : tone === 'muted' ? C.textSecondary : C.text);
 
+/** Screen header: title in the middle, outlined pill actions on the sides. Also exported as `RetroHeader`. */
 export default function ScreenHeader({ title, left, right }: Props) {
   const renderAction = (action?: Action, align: 'left' | 'right' = 'left') => (
     <View style={[styles.side, align === 'right' && styles.sideRight]}>
       {action ? (
-        <TouchableOpacity onPress={action.onPress} hitSlop={12} accessibilityRole="button">
+        <Pressable
+          onPress={action.onPress}
+          hitSlop={12}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.pill, pressed && { backgroundColor: C.backgroundSelected }]}
+        >
           <Text style={[styles.action, { color: toneColor(action.tone) }]}>{action.label}</Text>
-        </TouchableOpacity>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -34,13 +40,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundElement,
+    paddingHorizontal: Layout.gutter,
+    paddingVertical: Space.md,
   },
-  side: { width: 90 },
+  side: { width: Layout.headerSide, alignItems: 'flex-start' },
   sideRight: { alignItems: 'flex-end' },
-  title: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: Colors.dark.text },
-  action: { fontSize: 15, fontWeight: 'bold' },
+  pill: {
+    borderWidth: Border.width,
+    borderColor: C.ink,
+    borderRadius: Radius.pill,
+    backgroundColor: C.backgroundElement,
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.xs + 2,
+  },
+  title: { ...Type.heading, flex: 1, textAlign: 'center', color: C.text },
+  action: { ...Type.small, fontSize: 13 },
 });

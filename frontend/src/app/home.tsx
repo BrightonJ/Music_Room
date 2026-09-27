@@ -1,9 +1,22 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Colors } from '@/constants/theme';
-import { ui } from '@/constants/styles';
+import { CardToneCycle, Colors, Layout, Space } from '@/constants/theme';
+import {
+  RetroButton,
+  RetroCard,
+  RetroChip,
+  RetroEmpty,
+  RetroIcon,
+  RetroLink,
+  RetroMessage,
+  RetroRow,
+  RetroScreen,
+  RetroSectionTitle,
+  RetroSmallButton,
+  RetroText,
+} from '@/components/retro';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { storage } from '@/lib/storage';
 
@@ -72,29 +85,20 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={ui.screen} edges={['top', 'left', 'right']}>
+    <RetroScreen edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Rooms</Text>
-        <View style={styles.headerLinks}>
-          <TouchableOpacity onPress={() => router.push('/friends')} hitSlop={8}>
-            <Text style={ui.linkText}>Friends</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/profile')} hitSlop={8}>
-            <Text style={ui.linkText}>Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={logout} hitSlop={8}>
-            <Text style={[ui.linkText, { color: Colors.dark.danger }]}>Log out</Text>
-          </TouchableOpacity>
-        </View>
+        <RetroLink title="Friends" onPress={() => router.push('/friends')} />
+        <RetroLink title="Profile" onPress={() => router.push('/profile')} />
+        <RetroLink title="Log out" onPress={logout} color={Colors.retro.danger} />
       </View>
 
       {loading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={Colors.retro.primary} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={events}
           keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+          contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -102,76 +106,81 @@ export default function HomeScreen() {
                 setRefreshing(true);
                 load();
               }}
-              tintColor={Colors.dark.primary}
-              colors={[Colors.dark.primary]}
+              tintColor={Colors.retro.primary}
+              colors={[Colors.retro.primary]}
             />
           }
           ListHeaderComponent={
             <>
-              {error ? <Text style={ui.messageError}>{error}</Text> : null}
+              <RetroText variant="display" style={styles.hello}>
+                Hello,{'\n'}
+                {events.length} {events.length === 1 ? 'room' : 'rooms'} live
+              </RetroText>
+              {error ? <RetroMessage type="error" text={error} /> : null}
               {invitations.length > 0 ? (
                 <>
-                  <Text style={ui.sectionTitle}>Invitations</Text>
+                  <RetroSectionTitle>Invitations</RetroSectionTitle>
                   {invitations.map((inv) => (
-                    <View key={inv.id} style={ui.row}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={ui.rowTitle}>{inv.event_name}</Text>
-                        {inv.invited_by_username ? <Text style={ui.rowSubtitle}>From {inv.invited_by_username}</Text> : null}
-                      </View>
-                      <TouchableOpacity style={ui.smallButton} onPress={() => answerInvitation(inv, true)}>
-                        <Text style={ui.smallButtonText}>Join</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={ui.smallButtonMuted} onPress={() => answerInvitation(inv, false)}>
-                        <Text style={ui.smallButtonMutedText}>Decline</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <RetroRow
+                      key={inv.id}
+                      title={inv.event_name}
+                      subtitle={inv.invited_by_username ? `From ${inv.invited_by_username}` : undefined}
+                      right={
+                        <>
+                          <RetroSmallButton title="Join" onPress={() => answerInvitation(inv, true)} />
+                          <RetroSmallButton title="Decline" muted onPress={() => answerInvitation(inv, false)} />
+                        </>
+                      }
+                    />
                   ))}
                 </>
               ) : null}
-              <Text style={ui.sectionTitle}>Your rooms and public rooms</Text>
+              <RetroSectionTitle>Your rooms and public rooms</RetroSectionTitle>
             </>
           }
-          ListEmptyComponent={<Text style={ui.empty}>No room yet. Create one and invite your friends.</Text>}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={ui.row} onPress={() => router.push({ pathname: '/room', params: { id: String(item.id) } })}>
-              <View style={{ flex: 1 }}>
-                <Text style={ui.rowTitle} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={ui.rowSubtitle}>
+          ListEmptyComponent={<RetroEmpty>No room yet. Create one and invite your friends.</RetroEmpty>}
+          renderItem={({ item, index }) => (
+            <Pressable
+              onPress={() => router.push({ pathname: '/room', params: { id: String(item.id) } })}
+              accessibilityRole="button"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <RetroCard tone={CardToneCycle[index % CardToneCycle.length]} style={styles.card}>
+                <View style={styles.cardTop}>
+                  <RetroIcon name="musical-notes" size={22} />
+                  <RetroText variant="heading" style={{ flex: 1 }} numberOfLines={2}>
+                    {item.name}
+                  </RetroText>
+                </View>
+                <RetroText variant="small" style={styles.host}>
                   {item.is_owner ? 'Hosted by you' : `Hosted by ${item.owner_username}`}
-                  {item.is_private ? ', private' : ''}
-                </Text>
-              </View>
-              <Text style={styles.badge}>{licenseLabel[item.vote_license]}</Text>
-            </TouchableOpacity>
+                </RetroText>
+                <View style={styles.chips}>
+                  <RetroChip label={item.is_private ? 'Private' : 'Public'} />
+                  <RetroChip label={licenseLabel[item.vote_license]} />
+                </View>
+              </RetroCard>
+            </Pressable>
           )}
         />
       )}
 
       <SafeAreaView edges={['bottom']} style={styles.fabArea}>
-        <TouchableOpacity style={styles.fab} onPress={() => router.push('/create')}>
-          <Text style={styles.fabText}>Create a room</Text>
-        </TouchableOpacity>
+        <RetroButton title="+  Create a room" onPress={() => router.push('/create')} style={styles.fab} />
       </SafeAreaView>
-    </SafeAreaView>
+    </RetroScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundElement,
-  },
-  title: { fontSize: 24, fontWeight: '900', color: Colors.dark.text },
-  headerLinks: { flexDirection: 'row', gap: 16 },
-  badge: { color: Colors.dark.textSecondary, fontSize: 12, marginLeft: 8 },
-  fabArea: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' },
-  fab: { backgroundColor: Colors.dark.primary, paddingVertical: 16, paddingHorizontal: 32, borderRadius: 50, marginBottom: 16 },
-  fabText: { color: Colors.dark.background, fontSize: 16, fontWeight: 'bold' },
+  header: { flexDirection: 'row', justifyContent: 'flex-end', gap: Space.lg, paddingHorizontal: Layout.gutter, paddingVertical: Space.md },
+  list: { paddingHorizontal: Layout.gutter, paddingBottom: 120, width: '100%', maxWidth: Layout.maxContentWidth, alignSelf: 'center' },
+  hello: { marginTop: Space.xs },
+  card: { marginBottom: Space.lg },
+  pressed: { opacity: 0.85 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: Space.sm + 2 },
+  host: { marginTop: Space.xs, opacity: 0.9 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm, marginTop: Space.md },
+  fabArea: { position: 'absolute', left: Layout.gutter, right: Layout.gutter, bottom: 0 },
+  fab: { marginTop: 0, marginBottom: Space.lg },
 });

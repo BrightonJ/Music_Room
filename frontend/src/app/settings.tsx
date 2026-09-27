@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
@@ -8,6 +7,7 @@ import ScreenHeader from '@/components/ScreenHeader';
 import { getDefaultServerUrl, getServerUrl, resetServerUrl, setServerUrl } from '@/lib/config';
 import { normalizeServerUrl } from '@/lib/url';
 import { storage } from '@/lib/storage';
+import { RetroScreen } from '@/components/retro';
 
 // The backend address is configurable from the app (subject V.5)
 export default function SettingsScreen() {
@@ -79,7 +79,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={ui.screen}>
+    <RetroScreen>
       <ScreenHeader title="Server settings" left={{ label: 'Back', onPress: () => router.back() }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
@@ -92,7 +92,7 @@ export default function SettingsScreen() {
             value={value}
             onChangeText={setValue}
             placeholder="http://192.168.1.42:3000"
-            placeholderTextColor={Colors.dark.textSecondary}
+            placeholderTextColor={Colors.retro.textSecondary}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -102,7 +102,7 @@ export default function SettingsScreen() {
           {message ? <Text style={message.type === 'error' ? ui.messageError : ui.messageSuccess}>{message.text}</Text> : null}
 
           <TouchableOpacity style={[ui.secondaryButton, { marginTop: 24 }]} onPress={onTest} disabled={testing}>
-            {testing ? <ActivityIndicator color={Colors.dark.text} /> : <Text style={ui.secondaryButtonText}>Test connection</Text>}
+            {testing ? <ActivityIndicator color={Colors.retro.text} /> : <Text style={ui.secondaryButtonText}>Test connection</Text>}
           </TouchableOpacity>
           <TouchableOpacity style={ui.primaryButton} onPress={onSave}>
             <Text style={ui.primaryButtonText}>Save address</Text>
@@ -113,6 +113,6 @@ export default function SettingsScreen() {
           <Text style={[ui.helper, { marginTop: 16 }]}>Changing the server logs you out of this phone.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </RetroScreen>
   );
 }

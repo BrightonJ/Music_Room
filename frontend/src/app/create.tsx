@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
@@ -9,6 +8,7 @@ import DateTimeField from '@/components/DateTimeField';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { getFreshPosition } from '@/lib/location';
 import type { VoteLicense } from '@/components/room/types';
+import { RetroScreen, RetroSwitch } from '@/components/retro';
 
 const LICENSES: { value: VoteLicense; label: string; help: string }[] = [
   { value: 'everyone', label: 'Everyone', help: 'Everyone who can see the room can vote.' },
@@ -67,7 +67,7 @@ export default function CreateRoomScreen() {
   };
 
   return (
-    <SafeAreaView style={ui.screen}>
+    <RetroScreen>
       <ScreenHeader title="New room" left={{ label: 'Cancel', onPress: () => router.back(), tone: 'muted' }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
@@ -77,7 +77,7 @@ export default function CreateRoomScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Friday night at Jen's"
-            placeholderTextColor={Colors.dark.textSecondary}
+            placeholderTextColor={Colors.retro.textSecondary}
             maxLength={100}
           />
 
@@ -86,13 +86,7 @@ export default function CreateRoomScreen() {
               <Text style={ui.rowTitle}>Private room</Text>
               <Text style={ui.rowSubtitle}>{isPrivate ? 'Only the friends you invite can find it.' : 'Anyone can find it in the rooms list.'}</Text>
             </View>
-            <Switch
-              value={isPrivate}
-              onValueChange={setIsPrivate}
-              trackColor={{ false: Colors.dark.backgroundSelected, true: Colors.dark.primary }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor={Colors.dark.backgroundSelected}
-            />
+            <RetroSwitch value={isPrivate} onValueChange={setIsPrivate} />
           </View>
 
           <Text style={ui.label}>Who can vote</Text>
@@ -130,10 +124,10 @@ export default function CreateRoomScreen() {
 
           {error ? <Text style={ui.messageError}>{error}</Text> : null}
           <TouchableOpacity style={[ui.primaryButton, creating && ui.disabled]} onPress={create} disabled={creating}>
-            {creating ? <ActivityIndicator color={Colors.dark.background} /> : <Text style={ui.primaryButtonText}>Create room</Text>}
+            {creating ? <ActivityIndicator color={Colors.retro.onPrimary} /> : <Text style={ui.primaryButtonText}>Create room</Text>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </RetroScreen>
   );
 }

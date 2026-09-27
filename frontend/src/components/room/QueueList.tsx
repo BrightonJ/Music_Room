@@ -1,4 +1,5 @@
 import { FlatList, Image, Text, TouchableOpacity, View } from 'react-native';
+import { RetroIcon } from '@/components/retro';
 import { roomStyles as styles } from './roomStyles';
 import type { QueueTrack } from './types';
 
@@ -33,12 +34,22 @@ export default function QueueList({ queue, myVotes, canVote, onVote }: Props) {
               {item.addedBy ? <Text style={styles.trackMeta}>Added by {item.addedBy}</Text> : null}
             </View>
             <View style={[styles.voteContainer, !canVote && { opacity: 0.5 }]}>
-              <TouchableOpacity style={styles.voteBtn} onPress={() => onVote(item.id, 1)} accessibilityLabel="Vote up">
-                <Text style={[styles.voteIcon, myVote === 1 && styles.voteIconActive]}>👍</Text>
+              <TouchableOpacity
+                style={[styles.voteBtn, myVote === 1 && styles.voteBtnUpActive]}
+                onPress={() => onVote(item.id, 1)}
+                accessibilityLabel="Vote up"
+                accessibilityState={{ selected: myVote === 1 }}
+              >
+                <RetroIcon name="arrow-up" size={16} />
               </TouchableOpacity>
               <Text style={styles.voteCount}>{item.votes}</Text>
-              <TouchableOpacity style={styles.voteBtn} onPress={() => onVote(item.id, -1)} accessibilityLabel="Vote down">
-                <Text style={[styles.voteIcon, myVote === -1 && styles.voteIconActive]}>👎</Text>
+              <TouchableOpacity
+                style={[styles.voteBtn, myVote === -1 && styles.voteBtnDownActive]}
+                onPress={() => onVote(item.id, -1)}
+                accessibilityLabel="Vote down"
+                accessibilityState={{ selected: myVote === -1 }}
+              >
+                <RetroIcon name="arrow-down" size={16} />
               </TouchableOpacity>
             </View>
           </View>
