@@ -33,3 +33,4 @@ backend/bench/sessions.json
 coverage/
 npm-debug.log*
 .DS_Store
+.vscode

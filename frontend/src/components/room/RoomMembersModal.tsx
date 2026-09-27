@@ -34,7 +34,7 @@ export default function RoomMembersModal({
 }: Props) {
   const renderControlButton = (deviceId: number, hasControl: boolean) =>
     busyDeviceId === deviceId ? (
-      <ActivityIndicator color={Colors.dark.primary} />
+      <ActivityIndicator color={Colors.retro.primary} />
     ) : hasControl ? (
       <TouchableOpacity style={styles.declineButton} onPress={() => onRevoke(deviceId)}>
         <Text style={styles.declineButtonText}>Take back control</Text>
@@ -75,7 +75,7 @@ export default function RoomMembersModal({
                   Control is given to one device. Your friend must be able to see the room (invite them first if it is private).
                 </Text>
                 {loadingCandidates ? (
-                  <ActivityIndicator color={Colors.dark.primary} />
+                  <ActivityIndicator color={Colors.retro.primary} />
                 ) : candidates.length === 0 ? (
                   <Text style={styles.modalSubtitle}>Your friends have no device yet. They appear here after their first login.</Text>
                 ) : (

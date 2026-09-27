@@ -20,7 +20,7 @@ export default function TrackSearchResults({ results, loading, adding, onAdd }: 
       ListHeaderComponent={<Text style={styles.sectionTitle}>Search results</Text>}
       ListEmptyComponent={
         loading ? (
-          <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: 30 }} />
+          <ActivityIndicator color={Colors.retro.primary} style={{ marginTop: 30 }} />
         ) : (
           <Text style={styles.emptyQueueText}>No track found. Try another title or artist.</Text>
         )
@@ -43,7 +43,7 @@ export default function TrackSearchResults({ results, loading, adding, onAdd }: 
             accessibilityLabel={`Add ${item.title} to the queue`}
           >
             {adding === item.deezerId ? (
-              <ActivityIndicator color={Colors.dark.background} />
+              <ActivityIndicator color={Colors.retro.onPrimary} />
             ) : (
               <Text style={styles.addButtonText}>+</Text>
             )}

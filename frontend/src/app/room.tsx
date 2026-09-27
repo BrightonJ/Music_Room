@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
@@ -21,6 +20,7 @@ import { apiFetch, errorMessage } from '@/lib/api';
 import { clampVolume, currentPositionMs, nextVoteValue } from '@/lib/playback';
 import { getFreshPosition } from '@/lib/location';
 import { formatDateTime } from '@/lib/dates';
+import { RetroScreen } from '@/components/retro';
 
 export default function RoomScreen() {
   const router = useRouter();
@@ -283,17 +283,17 @@ export default function RoomScreen() {
 
   if (!roomId) {
     return (
-      <SafeAreaView style={ui.screen}>
+      <RetroScreen>
         <ScreenHeader title="Room" left={{ label: 'Back', onPress: () => router.replace('/home') }} />
         <Text style={ui.empty}>This room does not exist.</Text>
-      </SafeAreaView>
+      </RetroScreen>
     );
   }
 
   const status = room.connectionError || (!room.joined ? 'Connecting to the room…' : '');
 
   return (
-    <SafeAreaView style={roomStyles.container} edges={['top', 'left', 'right']}>
+    <RetroScreen edges={['top', 'left', 'right']}>
       <ScreenHeader
         title={event?.name ?? 'Room'}
         left={{ label: 'Leave', onPress: () => setShowLeave(true), tone: 'danger' }}
@@ -330,7 +330,7 @@ export default function RoomScreen() {
             value={search}
             onChangeText={setSearch}
             placeholder="Search a track to add"
-            placeholderTextColor={Colors.dark.textSecondary}
+            placeholderTextColor={Colors.retro.textSecondary}
             returnKeyType="search"
             autoCorrect={false}
             clearButtonMode="while-editing"
@@ -378,7 +378,7 @@ export default function RoomScreen() {
       <MemberProfileModal visible={profileVisible} profile={profile} error={profileError} onClose={() => setProfileVisible(false)} />
       <LeaveRoomModal visible={showLeave} isOwner={isOwner} onLeave={leave} onDelete={deleteRoom} onClose={() => setShowLeave(false)} />
       <RoomClosedModal visible={room.closed} onConfirm={() => router.replace('/home')} />
-    </SafeAreaView>
+    </RetroScreen>
   );
 }
 

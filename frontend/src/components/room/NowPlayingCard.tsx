@@ -1,4 +1,6 @@
 import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { RetroIcon } from '@/components/retro';
+import { Colors } from '@/constants/theme';
 import { roomStyles as styles } from './roomStyles';
 import type { PlaybackState } from './types';
 
@@ -72,9 +74,12 @@ export default function NowPlayingCard({
           accessibilityRole="switch"
           accessibilityState={{ checked: listening }}
         >
-          <Text style={[styles.listenText, listening && styles.listenTextActive]}>
-            {listening ? '🔊 Playing on this phone' : '🔇 Play on this phone'}
-          </Text>
+          <View style={styles.listenRow}>
+            <RetroIcon name={listening ? 'volume-high' : 'volume-mute'} size={14} color={Colors.retro.ink} />
+            <Text style={[styles.listenText, listening && styles.listenTextActive]}>
+              {listening ? 'Playing on this phone' : 'Play on this phone'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         {hasControl ? (

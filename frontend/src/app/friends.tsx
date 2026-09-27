@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import ScreenHeader from '@/components/ScreenHeader';
 import { apiFetch, errorMessage } from '@/lib/api';
+import { RetroScreen } from '@/components/retro';
 
 type User = { id: number; username: string };
 type FriendRequest = { id: number; requester_id: number; requester_username: string };
@@ -94,7 +94,7 @@ export default function FriendsScreen() {
   const friendIds = new Set(friends.map((f) => f.id));
 
   return (
-    <SafeAreaView style={ui.screen}>
+    <RetroScreen>
       <ScreenHeader title="Friends" left={{ label: 'Back', onPress: () => router.back() }} />
       <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
         <TextInput
@@ -102,7 +102,7 @@ export default function FriendsScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="Find people by username"
-          placeholderTextColor={Colors.dark.textSecondary}
+          placeholderTextColor={Colors.retro.textSecondary}
           autoCapitalize="none"
           autoCorrect={false}
         />
@@ -156,6 +156,6 @@ export default function FriendsScreen() {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </RetroScreen>
   );
 }

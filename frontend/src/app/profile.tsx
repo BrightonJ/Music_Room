@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
@@ -8,6 +7,7 @@ import ScreenHeader from '@/components/ScreenHeader';
 import DateTimeField from '@/components/DateTimeField';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { fromIsoDate, toIsoDate } from '@/lib/dates';
+import { RetroScreen } from '@/components/retro';
 
 type PrivacyLevel = 'public' | 'friends' | 'private';
 type PrivacyField = 'first_name' | 'last_name' | 'birth_date' | 'music_preferences';
@@ -124,14 +124,14 @@ export default function ProfileScreen() {
   );
 
   return (
-    <SafeAreaView style={ui.screen}>
+    <RetroScreen>
       <ScreenHeader
         title="Profile"
         left={{ label: 'Back', onPress: () => router.back() }}
         right={{ label: 'Devices', onPress: () => router.push('/devices') }}
       />
       {loading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={Colors.retro.primary} style={{ marginTop: 40 }} />
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
@@ -164,7 +164,7 @@ export default function ProfileScreen() {
               value={musicText}
               onChangeText={setMusicText}
               placeholder="jazz, rock, electro"
-              placeholderTextColor={Colors.dark.textSecondary}
+              placeholderTextColor={Colors.retro.textSecondary}
               autoCapitalize="none"
             />
             <Text style={ui.helper}>Separate them with commas.</Text>
@@ -172,7 +172,7 @@ export default function ProfileScreen() {
 
             {message ? <Text style={message.type === 'error' ? ui.messageError : ui.messageSuccess}>{message.text}</Text> : null}
             <TouchableOpacity style={[ui.primaryButton, saving && ui.disabled]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color={Colors.dark.background} /> : <Text style={ui.primaryButtonText}>Save profile</Text>}
+              {saving ? <ActivityIndicator color={Colors.retro.onPrimary} /> : <Text style={ui.primaryButtonText}>Save profile</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={ui.secondaryButton} onPress={() => router.push('/settings')}>
               <Text style={ui.secondaryButtonText}>Server settings</Text>
@@ -180,6 +180,6 @@ export default function ProfileScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       )}
-    </SafeAreaView>
+    </RetroScreen>
   );
 }

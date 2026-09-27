@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid, DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Colors } from '@/constants/theme';
+import { Colors, Outline, Radius, Space, Type } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import { formatDate, formatDateTime } from '@/lib/dates';
 
@@ -65,7 +65,7 @@ export default function DateTimeField({ value, onChange, mode, placeholder = 'Se
   return (
     <View>
       <TouchableOpacity style={[ui.input, hasError && ui.inputError]} onPress={onPress} accessibilityRole="button">
-        <Text style={{ color: value ? Colors.dark.text : Colors.dark.textSecondary, fontSize: 16 }}>{label}</Text>
+        <Text style={{ ...Type.input, color: value ? Colors.retro.text : Colors.retro.textSecondary }}>{label}</Text>
       </TouchableOpacity>
       {Platform.OS === 'ios' && iosOpen ? (
         <View style={styles.iosPanel}>
@@ -73,8 +73,8 @@ export default function DateTimeField({ value, onChange, mode, placeholder = 'Se
             value={initial}
             mode={mode}
             display="spinner"
-            themeVariant="dark"
-            textColor={Colors.dark.text}
+            themeVariant="light"
+            textColor={Colors.retro.text}
             minimumDate={minimumDate}
             maximumDate={maximumDate}
             onChange={(event: DateTimePickerEvent, date?: Date) => {
@@ -91,6 +91,6 @@ export default function DateTimeField({ value, onChange, mode, placeholder = 'Se
 }
 
 const styles = StyleSheet.create({
-  iosPanel: { backgroundColor: Colors.dark.backgroundElement, borderRadius: 10, marginTop: 8, paddingBottom: 8 },
-  done: { alignItems: 'center', paddingVertical: 8 },
+  iosPanel: { backgroundColor: Colors.retro.backgroundElement, ...Outline, borderRadius: Radius.md, marginTop: Space.sm, paddingBottom: Space.sm },
+  done: { alignItems: 'center', paddingVertical: Space.sm },
 });

@@ -11,15 +11,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/theme';
+import { Colors, Space, Type } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import DateTimeField from '@/components/DateTimeField';
 import { ApiError, apiFetch, errorMessage } from '@/lib/api';
 import { storage } from '@/lib/storage';
 import { toIsoDate } from '@/lib/dates';
 import { startSocialLogin } from '@/lib/socialAuth';
+import { RetroBrand, RetroScreen } from '@/components/retro';
 
 const USERNAME = /^[A-Za-z0-9_]{3,20}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -158,7 +158,7 @@ export default function AuthScreen() {
         style={[ui.input, errors[key] && ui.inputError]}
         value={value}
         onChangeText={onChange}
-        placeholderTextColor={Colors.dark.textSecondary}
+        placeholderTextColor={Colors.retro.textSecondary}
         autoCorrect={false}
         {...props}
       />
@@ -168,14 +168,14 @@ export default function AuthScreen() {
 
   if (checkingSession) {
     return (
-      <SafeAreaView style={[ui.screen, styles.center]}>
-        <ActivityIndicator color={Colors.dark.primary} />
-      </SafeAreaView>
+      <RetroScreen style={styles.center}>
+        <ActivityIndicator color={Colors.retro.primary} />
+      </RetroScreen>
     );
   }
 
   return (
-    <SafeAreaView style={ui.screen}>
+    <RetroScreen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.topBar}>
@@ -184,8 +184,7 @@ export default function AuthScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.brand}>Music Room</Text>
-          <Text style={styles.tagline}>{isLoginMode ? 'Log in to join the party' : 'Create your account'}</Text>
+          <RetroBrand subtitle={isLoginMode ? 'Log in to join the party' : 'Create your account'} />
 
           {!isLoginMode && (
             <>
@@ -241,7 +240,7 @@ export default function AuthScreen() {
 
           <TouchableOpacity style={[ui.primaryButton, submitting && ui.disabled]} onPress={submit} disabled={submitting}>
             {submitting ? (
-              <ActivityIndicator color={Colors.dark.background} />
+              <ActivityIndicator color={Colors.retro.onPrimary} />
             ) : (
               <Text style={ui.primaryButtonText}>{isLoginMode ? 'Log in' : 'Create account'}</Text>
             )}
@@ -269,16 +268,16 @@ export default function AuthScreen() {
       </KeyboardAvoidingView>
 
       <Modal visible={showForgot} transparent animationType="slide" onRequestClose={() => setShowForgot(false)} statusBarTranslucent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Reset your password</Text>
+        <KeyboardAvoidingView style={ui.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={ui.modalCard}>
+            <Text style={ui.modalTitle}>Reset your password</Text>
             <Text style={ui.helper}>We will email you a link to choose a new password.</Text>
             <TextInput
               style={[ui.input, { marginTop: 16 }]}
               value={forgotEmail}
               onChangeText={setForgotEmail}
               placeholder="Email"
-              placeholderTextColor={Colors.dark.textSecondary}
+              placeholderTextColor={Colors.retro.textSecondary}
               autoCapitalize="none"
               keyboardType="email-address"
             />
@@ -292,24 +291,19 @@ export default function AuthScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </RetroScreen>
   );
 }
 
 const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
   topBar: { alignItems: 'flex-end' },
-  settingsLink: { color: Colors.dark.textSecondary, fontSize: 13, fontWeight: 'bold' },
-  brand: { fontSize: 36, fontWeight: '900', color: Colors.dark.primary, marginTop: 24, letterSpacing: -1 },
-  tagline: { color: Colors.dark.textSecondary, fontSize: 16, marginTop: 4, marginBottom: 12 },
-  forgot: { alignSelf: 'flex-end', marginTop: 12 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24 },
-  divider: { flex: 1, height: 1, backgroundColor: Colors.dark.backgroundSelected },
-  dividerText: { color: Colors.dark.textSecondary, marginHorizontal: 12 },
-  switchMode: { marginTop: 24, alignItems: 'center' },
-  switchText: { color: Colors.dark.textSecondary, fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: Colors.dark.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 36 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
-  modalClose: { alignItems: 'center', marginTop: 16, paddingVertical: 8 },
+  settingsLink: { ...Type.small, color: Colors.retro.textSecondary, textDecorationLine: 'underline' },
+  forgot: { alignSelf: 'flex-end', marginTop: Space.md },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: Space.xxl },
+  divider: { flex: 1, height: 2, backgroundColor: Colors.retro.ink, opacity: 0.15 },
+  dividerText: { ...Type.small, color: Colors.retro.textSecondary, marginHorizontal: Space.md },
+  switchMode: { marginTop: Space.xxl, alignItems: 'center' },
+  switchText: { ...Type.body, fontSize: 14, color: Colors.retro.textSecondary },
+  modalClose: { alignItems: 'center', marginTop: Space.lg, paddingVertical: Space.sm },
 });
