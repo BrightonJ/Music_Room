@@ -24,6 +24,7 @@ app.use('/api', activityLogger);
 
 app.use('/api', require('./routes/health'));
 app.use('/api', require('./routes/auth'));
+app.use('/api/auth', require('./routes/social'));
 app.use('/api', require('./routes/profile'));
 app.use('/api', require('./routes/friends'));
 app.use('/api', require('./routes/events'));

@@ -122,6 +122,21 @@ export default function AuthScreen() {
     }
   };
 
+  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
+    setMessage(null);
+    setNeedsActivation(false);
+    setSubmitting(true);
+    try {
+      const session = await startSocialLogin(provider);
+      await storage.saveSession(session.token, session.user.id);
+      router.replace('/home');
+    } catch (err) {
+      setMessage({ type: 'error', text: errorMessage(err) });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const resendActivation = async () => {
     try {
       const data = await apiFetch<{ message: string }>('/resend-verification', { method: 'POST', auth: false, body: { email: email.trim() } });
@@ -251,10 +266,10 @@ export default function AuthScreen() {
             <Text style={styles.dividerText}>or</Text>
             <View style={styles.divider} />
           </View>
-          <TouchableOpacity style={ui.secondaryButton} onPress={() => startSocialLogin('google')}>
+          <TouchableOpacity style={ui.secondaryButton} onPress={() => handleSocialLogin('google')}>
             <Text style={ui.secondaryButtonText}>Continue with Google</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={ui.secondaryButton} onPress={() => startSocialLogin('facebook')}>
+          <TouchableOpacity style={ui.secondaryButton} onPress={() => handleSocialLogin('facebook')}>
             <Text style={ui.secondaryButtonText}>Continue with Facebook</Text>
           </TouchableOpacity>
 
