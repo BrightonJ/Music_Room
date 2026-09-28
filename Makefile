@@ -28,8 +28,7 @@ front-install:
 	cd frontend && npm install
 
 env:
-	@test -f backend/.env || (cp backend/.env.example backend/.env && echo "backend/.env created: fill it in")
-	@test -f frontend/.env || (cp frontend/.env.example frontend/.env && echo "frontend/.env created")
+	@bash scripts/setup-env.sh
 
 db-up:
 	cd backend && $(COMPOSE) up -d db
