@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import ScreenHeader from '@/components/ScreenHeader';
+import { goBack } from '@/lib/navigation';
 import { getDefaultServerUrl, getServerUrl, resetServerUrl, setServerUrl } from '@/lib/config';
 import { normalizeServerUrl } from '@/lib/url';
 import { storage } from '@/lib/storage';
@@ -80,7 +81,7 @@ export default function SettingsScreen() {
 
   return (
     <RetroScreen>
-      <ScreenHeader title="Server settings" left={{ label: 'Back', onPress: () => router.back() }} />
+      <ScreenHeader title="Server settings" left={{ label: 'Back', onPress: () => goBack(router, '/') }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
           <Text style={ui.helper}>

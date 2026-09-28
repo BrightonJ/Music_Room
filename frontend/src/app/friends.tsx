@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import ScreenHeader from '@/components/ScreenHeader';
+import { goBack } from '@/lib/navigation';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { RetroScreen } from '@/components/retro';
 
@@ -95,7 +96,7 @@ export default function FriendsScreen() {
 
   return (
     <RetroScreen>
-      <ScreenHeader title="Friends" left={{ label: 'Back', onPress: () => router.back() }} />
+      <ScreenHeader title="Friends" left={{ label: 'Back', onPress: () => goBack(router) }} />
       <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
         <TextInput
           style={ui.input}

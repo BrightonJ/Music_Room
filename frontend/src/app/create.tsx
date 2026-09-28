@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import ScreenHeader from '@/components/ScreenHeader';
+import { goBack } from '@/lib/navigation';
 import DateTimeField from '@/components/DateTimeField';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { getFreshPosition } from '@/lib/location';
@@ -68,7 +69,7 @@ export default function CreateRoomScreen() {
 
   return (
     <RetroScreen>
-      <ScreenHeader title="New room" left={{ label: 'Cancel', onPress: () => router.back(), tone: 'muted' }} />
+      <ScreenHeader title="New room" left={{ label: 'Cancel', onPress: () => goBack(router), tone: 'muted' }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={ui.scroll} keyboardShouldPersistTaps="handled">
           <Text style={ui.label}>Room name</Text>

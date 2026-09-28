@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import ScreenHeader from '@/components/ScreenHeader';
+import { goBack } from '@/lib/navigation';
 import DateTimeField from '@/components/DateTimeField';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { fromIsoDate, toIsoDate } from '@/lib/dates';
@@ -127,7 +128,7 @@ export default function ProfileScreen() {
     <RetroScreen>
       <ScreenHeader
         title="Profile"
-        left={{ label: 'Back', onPress: () => router.back() }}
+        left={{ label: 'Back', onPress: () => goBack(router) }}
         right={{ label: 'Devices', onPress: () => router.push('/devices') }}
       />
       {loading ? (

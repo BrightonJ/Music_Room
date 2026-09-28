@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/styles';
 import ScreenHeader from '@/components/ScreenHeader';
+import { goBack } from '@/lib/navigation';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { storage } from '@/lib/storage';
 import { formatDateTime } from '@/lib/dates';
@@ -72,7 +73,7 @@ export default function DevicesScreen() {
 
   return (
     <RetroScreen>
-      <ScreenHeader title="Devices" left={{ label: 'Back', onPress: () => router.back() }} />
+      <ScreenHeader title="Devices" left={{ label: 'Back', onPress: () => goBack(router, '/profile') }} />
       {loading ? (
         <ActivityIndicator color={Colors.retro.primary} style={{ marginTop: 40 }} />
       ) : (
