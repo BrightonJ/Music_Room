@@ -7,7 +7,7 @@ export
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup env install db-setup db-up db-down db-init db-test \
+.PHONY: help setup env install eas-setup db-setup db-up db-down db-init db-test \
         back front start test test-back test-integration test-front \
         clean reset bench-seed bench-sockets bench-rest
 
@@ -20,6 +20,7 @@ help:
 	@echo "  clean       stop containers, prune images, remove node_modules and generated .env"
 	@echo ""
 	@echo "  env         regenerate backend/.env and frontend/.env from the root .env"
+	@echo "  eas-setup   configure EAS Build for the frontend (creates eas.json)"
 	@echo "  install     install backend + frontend npm dependencies"
 	@echo ""
 	@echo "  db-setup    start PostgreSQL and (re)create the schema — DELETES ALL DATA"
@@ -60,6 +61,9 @@ front-install:
 env:
 	@bash scripts/setup-env.sh
 
+eas-setup:
+	cd frontend && npx eas build:configure
+
 db-setup: db-up db-init
 
 db-up:
@@ -69,6 +73,12 @@ db-down:
 	cd backend && $(COMPOSE) down
 
 db-init:
+	@echo "→ Waiting for PostgreSQL..."
+	@for i in $$(seq 1 30); do \
+		status=$$(docker inspect -f '{{.State.Health.Status}}' music_room_db 2>/dev/null || echo unknown); \
+		if [ "$$status" = "healthy" ]; then echo "   PostgreSQL is ready."; break; fi; \
+		sleep 1; \
+	done
 	cd backend && npm run init-db
 
 db-test:

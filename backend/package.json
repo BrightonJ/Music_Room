@@ -30,6 +30,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "cloudflared": "^0.7.3",
     "socket.io-client": "^4.8.3"
   }
 }

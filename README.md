@@ -1,5 +1,17 @@
 Mobile + web collaborative music app. Backend = source of truth, mobile = remote control.
 
+## Prerequisites
+
+Tools you need on your machine (installed outside the project):
+
+- Node.js 20+
+- npm
+- Docker (or Podman) with Compose
+- `make`
+- `openssl`
+
+Everything else (backend + frontend dependencies, `eas-cli`, `cloudflared`, `@expo/ngrok`) is installed by `make install`.
+
 ## Quick start
 
 ```bash
