@@ -1,23 +1,53 @@
 # Music Room — development commands
-# Usage: make install, make db-up, make db-init, make back, make front, make test
+# Usage: make help
 
 COMPOSE ?= docker compose
 -include backend/.env
 export
 
-.PHONY: help install back-install front-install env db-up db-down db-init db-test back front test test-back test-integration test-front bench-seed bench-sockets bench-rest
+.DEFAULT_GOAL := help
+
+.PHONY: help setup env install db-setup db-up db-down db-init db-test \
+        back front start test test-back test-integration test-front \
+        clean reset bench-seed bench-sockets bench-rest
 
 help:
-	@echo "make install          install backend + frontend dependencies"
-	@echo "make env              create backend/.env and frontend/.env from the examples"
-	@echo "make db-up            start PostgreSQL ($(COMPOSE))"
-	@echo "make db-init          (re)create the schema - DELETES ALL DATA"
-	@echo "make db-test          create the test database (musicroom_test)"
-	@echo "make back             start the API + WebSockets"
-	@echo "make front            start Expo (scan the QR code with iOS / Android)"
-	@echo "make test             unit tests backend + frontend"
-	@echo "make test-integration API + sockets tests against TEST_DATABASE_URL"
-	@echo "make bench-seed / bench-sockets / bench-rest   ramp-up tests (see backend/bench/README.md)"
+	@echo "Music Room — make targets"
+	@echo ""
+	@echo "  setup       full first-time setup (install + env + db-up + db-init)"
+	@echo "  start       one-shot: db-up + schema + back & front in new tabs"
+	@echo "  reset       wipe everything and re-run setup"
+	@echo "  clean       stop containers, prune images, remove node_modules and generated .env"
+	@echo ""
+	@echo "  env         regenerate backend/.env and frontend/.env from the root .env"
+	@echo "  install     install backend + frontend npm dependencies"
+	@echo ""
+	@echo "  db-setup    start PostgreSQL and (re)create the schema — DELETES ALL DATA"
+	@echo "  db-up       start PostgreSQL only"
+	@echo "  db-down     stop PostgreSQL"
+	@echo "  db-init     recreate the schema only"
+	@echo "  db-test     create the test database (musicroom_test)"
+	@echo ""
+	@echo "  back        start the API + WebSockets (run in its own terminal)"
+	@echo "  front       start Expo (run in its own terminal)"
+	@echo ""
+	@echo "  test        unit tests backend + frontend"
+	@echo "  test-integration  API + sockets tests against TEST_DATABASE_URL"
+	@echo "  bench-seed / bench-sockets / bench-rest  ramp-up tests (backend/bench/README.md)"
+
+setup: install env db-setup
+	@echo ""
+	@echo "✅ Setup complete. Run 'make start' to launch everything."
+
+reset: clean setup
+
+clean:
+	-@cd backend && $(COMPOSE) down -v --remove-orphans 2>/dev/null || true
+	-@docker system prune -af --volumes 2>/dev/null || true
+	-@rm -rf backend/node_modules frontend/node_modules
+	-@rm -f backend/.env frontend/.env
+	-@rm -rf frontend/.expo frontend/dist frontend/web-build
+	@echo "✅ Clean complete. Root .env was kept."
 
 install: back-install front-install
 
@@ -29,6 +59,8 @@ front-install:
 
 env:
 	@bash scripts/setup-env.sh
+
+db-setup: db-up db-init
 
 db-up:
 	cd backend && $(COMPOSE) up -d db
@@ -47,6 +79,9 @@ back:
 
 front:
 	cd frontend && npx expo start
+
+start:
+	@bash scripts/start.sh
 
 test: test-back test-front
 
