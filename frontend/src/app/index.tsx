@@ -63,8 +63,8 @@ export default function AuthScreen() {
 
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!email.trim()) next.email = 'Email required';
-    else if (!EMAIL.test(email.trim())) next.email = 'Invalid email format';
+    if (!email.trim()) next.email = isLoginMode ? 'Email or username required' : 'Email required';
+    else if (!isLoginMode && !EMAIL.test(email.trim())) next.email = 'Invalid email format';
     if (!password) next.password = 'Password required';
     if (!isLoginMode) {
       if (!firstName.trim()) next.firstName = 'First name required';
@@ -91,7 +91,7 @@ export default function AuthScreen() {
         const data = await apiFetch<{ token: string; user: { id: number } }>('/login', {
           method: 'POST',
           auth: false,
-          body: { email: email.trim(), password },
+          body: { identifier: email.trim(), password },
         });
         await storage.saveSession(data.token, data.user.id);
         router.replace('/home');
@@ -124,7 +124,7 @@ export default function AuthScreen() {
 
   const resendActivation = async () => {
     try {
-      const data = await apiFetch<{ message: string }>('/resend-verification', { method: 'POST', auth: false, body: { email: email.trim() } });
+      const data = await apiFetch<{ message: string }>('/resend-verification', { method: 'POST', auth: false, body: { identifier: email.trim() } });
       setMessage({ type: 'success', text: data.message });
       setNeedsActivation(false);
     } catch (err) {
@@ -205,7 +205,9 @@ export default function AuthScreen() {
             </>
           )}
 
-          {field('email', 'Email', email, setEmail, { autoCapitalize: 'none', keyboardType: 'email-address', textContentType: 'emailAddress' })}
+          {isLoginMode
+            ? field('email', 'Email or username', email, setEmail, { autoCapitalize: 'none', textContentType: 'username' })
+            : field('email', 'Email', email, setEmail, { autoCapitalize: 'none', keyboardType: 'email-address', textContentType: 'emailAddress' })}
           {field('password', 'Password', password, setPassword, {
             secureTextEntry: true,
             autoCapitalize: 'none',
@@ -222,7 +224,7 @@ export default function AuthScreen() {
             <TouchableOpacity
               style={styles.forgot}
               onPress={() => {
-                setForgotEmail(email);
+                setForgotEmail(email.includes('@') ? email : '');
                 setForgotMessage('');
                 setShowForgot(true);
               }}

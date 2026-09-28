@@ -150,6 +150,27 @@ if (!TEST_DB) {
       assert.equal(noDevice.status, 400);
     });
 
+    test('login with the email or the username, case-insensitive; usernames are unique regardless of case', async () => {
+      const user = await createUser();
+      const byEmail = await api('/login', { method: 'POST', body: { identifier: user.email.toUpperCase(), password: PASSWORD }, deviceUid: crypto.randomUUID() });
+      assert.equal(byEmail.status, 200);
+      const byUsername = await api('/login', { method: 'POST', body: { identifier: user.username.toUpperCase(), password: PASSWORD }, deviceUid: crypto.randomUUID() });
+      assert.equal(byUsername.status, 200);
+      assert.equal(byUsername.data.user.id, user.id);
+
+      const wrong = await api('/login', { method: 'POST', body: { identifier: user.username, password: 'Wrong-Passw0rd' }, deviceUid: crypto.randomUUID() });
+      const unknown = await api('/login', { method: 'POST', body: { identifier: 'nobody_here', password: PASSWORD }, deviceUid: crypto.randomUUID() });
+      assert.equal(wrong.status, 401);
+      assert.equal(unknown.status, 401);
+      assert.equal(unknown.data.error, wrong.data.error);
+
+      const clash = await api('/register', {
+        method: 'POST',
+        body: { email: 'clash@test.local', password: PASSWORD, username: user.username.toUpperCase(), firstName: 'C', lastName: 'L', birthDate: '1999-12-31' },
+      });
+      assert.equal(clash.status, 409);
+    });
+
     test('birth date comes back exactly as stored (no time zone shift)', async () => {
       const user = await createUser();
       const { token } = await login(user);

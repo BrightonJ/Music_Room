@@ -76,6 +76,7 @@ const STATEMENTS = [
   )`,
   // A track can only be once in the queue (or playing) of an event: concurrent
   // additions of the same track are resolved by the database itself.
+  `CREATE UNIQUE INDEX users_username_lower_idx ON users (LOWER(username))`,
   `CREATE UNIQUE INDEX tracks_one_active_per_event ON tracks (event_id, deezer_id) WHERE status <> 'played'`,
   `CREATE INDEX tracks_event_status_idx ON tracks (event_id, status)`,
 

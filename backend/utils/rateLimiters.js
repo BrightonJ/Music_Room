@@ -13,7 +13,11 @@ function limiter(options) {
   });
 }
 
-const emailKey = (req) => (typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '');
+// Login / email target key: the identifier (email or username) or the email field
+const emailKey = (req) => {
+  const value = req.body?.identifier ?? req.body?.email;
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+};
 
 // Anti-flood only, per IP. Generous on purpose: at a party every guest on the
 // venue Wi-Fi shares the same public IP.
@@ -26,7 +30,7 @@ const userLimiter = limiter({
   keyGenerator: (req) => `user:${req.user.userId}`,
 });
 
-// Brute force protection: only FAILED attempts count, per IP + email
+// Brute force protection: only FAILED attempts count, per IP + identifier (email or username)
 const loginLimiter = limiter({
   windowMs: 15 * 60 * 1000,
   limit: 10,

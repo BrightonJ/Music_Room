@@ -11,6 +11,7 @@ const {
   usernameRegex,
   isValidBirthDate,
   normalizeEmail,
+  parseIdentifier,
   cleanString,
 } = require('../utils/validators');
 const { ClientError } = require('../utils/errors');
@@ -28,6 +29,13 @@ const TOKEN_FORMAT = /^[a-f0-9]{64}$/;
 // Compared against when the email is unknown, so that the response time does
 // not reveal whether an account exists
 const DUMMY_HASH = bcrypt.hashSync('timing-attack-protection', BCRYPT_ROUNDS);
+
+// Finds a user by email or username (case-insensitive). Column names come from
+// parseIdentifier, never from the request.
+function findByIdentifier(identifier, columns) {
+  const where = identifier.column === 'email' ? 'email = $1' : 'LOWER(username) = $1';
+  return db.query(`SELECT ${columns} FROM users WHERE ${where} LIMIT 1`, [identifier.value]);
+}
 
 const hashToken = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex');
 function newToken() {
@@ -104,7 +112,9 @@ router.get('/verify/:token', async (req, res) => {
 });
 
 router.post('/resend-verification', ...emailLimiters, async (req, res) => {
-  const email = normalizeEmail(req.body && req.body.email);
+  const identifier = parseIdentifier(req.body && (req.body.identifier ?? req.body.email));
+  const found = identifier ? await findByIdentifier(identifier, 'email') : { rows: [] };
+  const email = found.rows[0] ? found.rows[0].email : '';
   if (emailRegex.test(email)) {
     const verification = newToken();
     const result = await db.query(
@@ -119,12 +129,14 @@ router.post('/resend-verification', ...emailLimiters, async (req, res) => {
 
 router.post('/login', loginLimiter, async (req, res) => {
   const body = req.body || {};
-  const email = normalizeEmail(body.email);
+  // `identifier` is an email or a username; `email` is still accepted for older clients
+  const identifier = parseIdentifier(body.identifier ?? body.email);
   const device = readDeviceInfo(req.headers);
   if (!device) throw new ClientError('Missing or invalid X-Device-Id header');
-  if (!email || typeof body.password !== 'string' || !body.password) throw new ClientError('Invalid credentials', 401);
+  // Same answer for every failure: it never tells whether an account exists
+  if (!identifier || typeof body.password !== 'string' || !body.password) throw new ClientError('Invalid credentials', 401);
 
-  const result = await db.query('SELECT id, email, username, password, is_verified FROM users WHERE email = $1', [email]);
+  const result = await findByIdentifier(identifier, 'id, email, username, password, is_verified');
   const user = result.rows[0];
   const passwordOk = await bcrypt.compare(body.password.slice(0, 128), (user && user.password) || DUMMY_HASH);
   if (!user || !user.password || !passwordOk) throw new ClientError('Invalid credentials', 401);

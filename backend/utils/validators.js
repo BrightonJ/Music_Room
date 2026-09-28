@@ -18,6 +18,16 @@ function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+// Login identifier: an email or a username. Usernames can never contain "@",
+// so the presence of "@" is enough to tell them apart.
+function parseIdentifier(value) {
+  const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!text) return null;
+  if (text.includes('@')) return { column: 'email', value: text };
+  if (!usernameRegex.test(text)) return null;
+  return { column: 'username', value: text };
+}
+
 // Trimmed non-empty string of at most `max` characters, or null
 function cleanString(value, max) {
   if (typeof value !== 'string') return null;
@@ -55,6 +65,7 @@ module.exports = {
   VOTE_LICENSES,
   parseId,
   normalizeEmail,
+  parseIdentifier,
   cleanString,
   isFiniteNumberInRange,
   parseDateTime,

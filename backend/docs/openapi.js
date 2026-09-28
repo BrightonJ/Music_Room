@@ -246,15 +246,23 @@ module.exports = {
       get: op({ tag: 'Auth', summary: 'Activation link (HTML page)', auth: false, params: [{ name: 'token', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'HTML page' }, 400: { description: 'HTML page (invalid link)' } } }),
     },
     '/resend-verification': {
-      post: op({ tag: 'Auth', summary: 'Send a new activation email', auth: false, requestBody: body({ type: 'object', properties: { email: { type: 'string' } } }), responses: { 200: message() } }),
+      post: op({ tag: 'Auth', summary: 'Send a new activation email', auth: false, requestBody: body({ type: 'object', properties: { identifier: { type: 'string', description: 'Email or username' }, email: { type: 'string', deprecated: true } } }), responses: { 200: message() } }),
     },
     '/login': {
       post: op({
         tag: 'Auth',
-        summary: 'Log in on this device',
+        summary: 'Log in on this device, with the email or the username',
         auth: false,
         params: [{ $ref: '#/components/parameters/XDeviceId' }],
-        requestBody: body({ type: 'object', required: ['email', 'password'], properties: { email: { type: 'string' }, password: { type: 'string' } } }),
+        requestBody: body({
+          type: 'object',
+          required: ['identifier', 'password'],
+          properties: {
+            identifier: { type: 'string', description: 'Email or username (case-insensitive)' },
+            email: { type: 'string', deprecated: true, description: 'Older clients: same as identifier' },
+            password: { type: 'string' },
+          },
+        }),
         responses: {
           200: json({ type: 'object', properties: { token: { type: 'string' }, deviceId: { type: 'integer' }, user: ref('UserSummary') } }),
           400: error('Missing X-Device-Id'),
