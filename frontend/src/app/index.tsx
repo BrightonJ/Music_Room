@@ -63,8 +63,8 @@ export default function AuthScreen() {
 
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!email.trim()) next.email = isLoginMode ? 'Email or username required' : 'Email required';
-    else if (!isLoginMode && !EMAIL.test(email.trim())) next.email = 'Invalid email format';
+    if (!email.trim()) next.email = 'Email required';
+    else if (!EMAIL.test(email.trim())) next.email = 'Invalid email format';
     if (!password) next.password = 'Password required';
     if (!isLoginMode) {
       if (!firstName.trim()) next.firstName = 'First name required';
@@ -91,7 +91,7 @@ export default function AuthScreen() {
         const data = await apiFetch<{ token: string; user: { id: number } }>('/login', {
           method: 'POST',
           auth: false,
-          body: { identifier: email.trim(), password },
+          body: { email: email.trim(), password },
         });
         await storage.saveSession(data.token, data.user.id);
         router.replace('/home');
@@ -122,9 +122,24 @@ export default function AuthScreen() {
     }
   };
 
+  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
+    setMessage(null);
+    setNeedsActivation(false);
+    setSubmitting(true);
+    try {
+      const session = await startSocialLogin(provider);
+      await storage.saveSession(session.token, session.user.id);
+      router.replace('/home');
+    } catch (err) {
+      setMessage({ type: 'error', text: errorMessage(err) });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const resendActivation = async () => {
     try {
-      const data = await apiFetch<{ message: string }>('/resend-verification', { method: 'POST', auth: false, body: { identifier: email.trim() } });
+      const data = await apiFetch<{ message: string }>('/resend-verification', { method: 'POST', auth: false, body: { email: email.trim() } });
       setMessage({ type: 'success', text: data.message });
       setNeedsActivation(false);
     } catch (err) {
@@ -205,9 +220,7 @@ export default function AuthScreen() {
             </>
           )}
 
-          {isLoginMode
-            ? field('email', 'Email or username', email, setEmail, { autoCapitalize: 'none', textContentType: 'username' })
-            : field('email', 'Email', email, setEmail, { autoCapitalize: 'none', keyboardType: 'email-address', textContentType: 'emailAddress' })}
+          {field('email', 'Email', email, setEmail, { autoCapitalize: 'none', keyboardType: 'email-address', textContentType: 'emailAddress' })}
           {field('password', 'Password', password, setPassword, {
             secureTextEntry: true,
             autoCapitalize: 'none',
@@ -224,7 +237,7 @@ export default function AuthScreen() {
             <TouchableOpacity
               style={styles.forgot}
               onPress={() => {
-                setForgotEmail(email.includes('@') ? email : '');
+                setForgotEmail(email);
                 setForgotMessage('');
                 setShowForgot(true);
               }}
@@ -253,8 +266,11 @@ export default function AuthScreen() {
             <Text style={styles.dividerText}>or</Text>
             <View style={styles.divider} />
           </View>
-          <TouchableOpacity style={ui.secondaryButton} onPress={() => startSocialLogin('google')}>
+          <TouchableOpacity style={ui.secondaryButton} onPress={() => handleSocialLogin('google')}>
             <Text style={ui.secondaryButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={ui.secondaryButton} onPress={() => handleSocialLogin('facebook')}>
+            <Text style={ui.secondaryButtonText}>Continue with Facebook</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.switchMode} onPress={switchMode}>

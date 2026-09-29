@@ -1,0 +1,153 @@
+const express = require('express');
+const db = require('../config/db');
+const { requireAuth } = require('../middleware/auth');
+const { loginLimiter } = require('../utils/rateLimiters');
+const { ClientError } = require('../utils/errors');
+const { readDeviceInfo, openSession } = require('../services/session');
+const { verifyGoogleToken, verifyFacebookToken } = require('../services/social');
+
+const router = express.Router();
+
+// Google/Facebook id_token (or access_token) → unified profile shape
+async function verifyToken(provider, token) {
+  if (provider === 'google') return verifyGoogleToken(token);
+  if (provider === 'facebook') return verifyFacebookToken(token);
+  throw new ClientError('Unsupported provider', 400);
+}
+
+// Build a unique username from the email local-part + a random suffix
+async function generateUsername(email, firstName) {
+  const base = (email ? email.split('@')[0] : firstName || 'user')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 14) || 'user';
+  for (let i = 0; i < 5; i += 1) {
+    const suffix = Math.floor(Math.random() * 9000 + 1000);
+    const candidate = `${base}${suffix}`.slice(0, 20);
+    const existing = await db.query('SELECT 1 FROM users WHERE username = $1', [candidate]);
+    if (existing.rows.length === 0) return candidate;
+  }
+  // Extremely unlikely fallback
+  return `user${Date.now().toString().slice(-10)}`.slice(0, 20);
+}
+
+// Create a brand new user from a social profile (no password)
+async function createSocialUser(provider, profile) {
+  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+  const username = await generateUsername(profile.email, profile.firstName);
+  const email = profile.email || `${provider}_${profile.providerId}@social.musicroom.local`;
+  const result = await db.query(
+    `INSERT INTO users (email, username, first_name, last_name, ${column}, is_verified)
+     VALUES ($1, $2, $3, $4, $5, true)
+     RETURNING id, email, username`,
+    [email, username, profile.firstName, profile.lastName, profile.providerId]
+  );
+  return result.rows[0];
+}
+
+// Find the user matching the social profile: by provider id first, then by email
+async function findUser(provider, profile) {
+  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+  const byProvider = await db.query(
+    `SELECT id, email, username, ${column} AS provider_id FROM users WHERE ${column} = $1`,
+    [profile.providerId]
+  );
+  if (byProvider.rows.length > 0) return { user: byProvider.rows[0], linked: true };
+
+  if (profile.email) {
+    const byEmail = await db.query(
+      `SELECT id, email, username, ${column} AS provider_id FROM users WHERE email = $1`,
+      [profile.email]
+    );
+    if (byEmail.rows.length > 0) return { user: byEmail.rows[0], linked: false };
+  }
+  return { user: null, linked: false };
+}
+
+// Link the provider id to an existing account (same email, first time)
+async function linkProvider(userId, provider, providerId) {
+  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+  await db.query(`UPDATE users SET ${column} = $1 WHERE id = $2`, [providerId, userId]);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/google    { idToken }
+// POST /api/auth/facebook  { accessToken }
+// Login OR signup in a single call. On first login, auto-link by email.
+// ---------------------------------------------------------------------------
+async function socialLogin(provider, token, req, res) {
+  const device = readDeviceInfo(req.headers);
+  if (!device) throw new ClientError('Missing or invalid X-Device-Id header');
+
+  const profile = await verifyToken(provider, token);
+  const { user, linked } = await findUser(provider, profile);
+
+  let finalUser = user;
+  if (!finalUser) {
+    finalUser = await createSocialUser(provider, profile);
+  } else if (!linked) {
+    // Same email, account created the classic way → link silently
+    await linkProvider(finalUser.id, provider, profile.providerId);
+  }
+
+  const session = await openSession(finalUser.id, device);
+  req.user = { userId: finalUser.id, deviceRowId: session.deviceId };
+  res.json({
+    message: 'Login successful',
+    token: session.token,
+    deviceId: session.deviceId,
+    user: { id: finalUser.id, email: finalUser.email, username: finalUser.username },
+  });
+}
+
+router.post('/google', loginLimiter, (req, res, next) => {
+  const { idToken } = req.body || {};
+  if (typeof idToken !== 'string' || !idToken) {
+    return next(new ClientError('idToken is required', 400));
+  }
+  socialLogin('google', idToken, req, res).catch(next);
+});
+
+router.post('/facebook', loginLimiter, (req, res, next) => {
+  const { accessToken } = req.body || {};
+  if (typeof accessToken !== 'string' || !accessToken) {
+    return next(new ClientError('accessToken is required', 400));
+  }
+  socialLogin('facebook', accessToken, req, res).catch(next);
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/link/google    { idToken }        (auth required)
+// POST /api/auth/link/facebook  { accessToken }    (auth required)
+// Attach a social account to the currently logged-in user.
+// ---------------------------------------------------------------------------
+async function socialLink(provider, token, req, res) {
+  const profile = await verifyToken(provider, token);
+  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+
+  // Prevent linking a provider id already attached to someone else
+  const conflict = await db.query(
+    `SELECT id FROM users WHERE ${column} = $1 AND id <> $2`,
+    [profile.providerId, req.user.userId]
+  );
+  if (conflict.rows.length > 0) {
+    throw new ClientError('This account is already linked to another user', 409);
+  }
+
+  await db.query(`UPDATE users SET ${column} = $1 WHERE id = $2`, [profile.providerId, req.user.userId]);
+  res.json({ message: `${provider} account linked` });
+}
+
+router.post('/link/google', requireAuth, (req, res, next) => {
+  const { idToken } = req.body || {};
+  if (typeof idToken !== 'string' || !idToken) return next(new ClientError('idToken is required', 400));
+  socialLink('google', idToken, req, res).catch(next);
+});
+
+router.post('/link/facebook', requireAuth, (req, res, next) => {
+  const { accessToken } = req.body || {};
+  if (typeof accessToken !== 'string' || !accessToken) return next(new ClientError('accessToken is required', 400));
+  socialLink('facebook', accessToken, req, res).catch(next);
+});
+
+module.exports = router;

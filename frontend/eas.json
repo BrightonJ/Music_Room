@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 24.8.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://maps-electro-controversy-literally.trycloudflare.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "366454289403-elqiqam0dpm679a69rddp0vqeafvsqoa.apps.googleusercontent.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": "2656671428103276"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
