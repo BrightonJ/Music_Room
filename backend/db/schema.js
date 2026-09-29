@@ -20,7 +20,6 @@ const STATEMENTS = [
     reset_token_hash VARCHAR(64),
     reset_expires_at TIMESTAMPTZ,
     google_id VARCHAR(255) UNIQUE,
-    facebook_id VARCHAR(255) UNIQUE,
     privacy_settings JSONB NOT NULL DEFAULT '{"first_name": "public", "last_name": "public", "birth_date": "private", "music_preferences": "friends"}',
     music_preferences JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

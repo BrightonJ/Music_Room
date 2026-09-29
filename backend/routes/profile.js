@@ -8,7 +8,7 @@ const { areFriends, filterProfileForViewer } = require('../models/profiles');
 const router = express.Router();
 
 const PROFILE_COLUMNS = `id, username, email, first_name, last_name, birth_date, privacy_settings, music_preferences,
-  (password IS NOT NULL) AS has_password, (google_id IS NOT NULL) AS google_linked, (facebook_id IS NOT NULL) AS facebook_linked`;
+  (password IS NOT NULL) AS has_password, (google_id IS NOT NULL) AS google_linked`;
 
 router.get('/profile', requireAuth, async (req, res) => {
   const result = await db.query(`SELECT ${PROFILE_COLUMNS} FROM users WHERE id = $1`, [req.user.userId]);

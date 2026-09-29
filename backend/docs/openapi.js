@@ -105,7 +105,6 @@ module.exports = {
           privacy_settings: { type: 'object', additionalProperties: ref('PrivacyLevel') },
           has_password: { type: 'boolean' },
           google_linked: { type: 'boolean' },
-          facebook_linked: { type: 'boolean' },
         },
       },
       PublicProfile: {

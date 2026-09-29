@@ -256,9 +256,6 @@ export default function AuthScreen() {
           <TouchableOpacity style={ui.secondaryButton} onPress={() => startSocialLogin('google')}>
             <Text style={ui.secondaryButtonText}>Continue with Google</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={ui.secondaryButton} onPress={() => startSocialLogin('facebook')}>
-            <Text style={ui.secondaryButtonText}>Continue with Facebook</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity style={styles.switchMode} onPress={switchMode}>
             <Text style={styles.switchText}>
