@@ -273,20 +273,38 @@ export default function RoomScreen() {
   };
 
   // ---------- leaving ----------
+  // iOS: navigating (or opening another modal) while a modal is still animating can
+  // leave an invisible modal on top of the app that blocks every touch. Leave the
+  // room screen only once the modals are closed.
+  const MODAL_ANIMATION_MS = 350;
+  const goHomeAfterModals = () => setTimeout(() => router.replace('/home'), MODAL_ANIMATION_MS);
+
   const leave = async () => {
     setShowLeave(false);
     await room.leave();
-    router.replace('/home');
+    goHomeAfterModals();
   };
 
+  // The host deletes the room: they also receive "room_closed", but must not see the
+  // "Room deleted" modal on top of the closing "Leave the room?" modal
+  const deletingRef = useRef(false);
   const deleteRoom = async () => {
+    deletingRef.current = true;
     setShowLeave(false);
     try {
       await apiFetch(`/events/${roomId}`, { method: 'DELETE' });
-      router.replace('/home');
+      goHomeAfterModals();
     } catch (err) {
+      deletingRef.current = false;
       showToast(errorMessage(err));
     }
+  };
+
+  // Guests: close the "Room deleted" modal first, then leave the screen
+  const [closedAcknowledged, setClosedAcknowledged] = useState(false);
+  const acknowledgeClosed = () => {
+    setClosedAcknowledged(true);
+    goHomeAfterModals();
   };
 
   const licenseText = () => {
@@ -396,7 +414,7 @@ export default function RoomScreen() {
       />
       <MemberProfileModal visible={profileVisible} profile={profile} error={profileError} onClose={() => setProfileVisible(false)} />
       <LeaveRoomModal visible={showLeave} isOwner={isOwner} onLeave={leave} onDelete={deleteRoom} onClose={() => setShowLeave(false)} />
-      <RoomClosedModal visible={room.closed} onConfirm={() => router.replace('/home')} />
+      <RoomClosedModal visible={room.closed && !deletingRef.current && !closedAcknowledged} onConfirm={acknowledgeClosed} />
     </RetroScreen>
   );
 }
