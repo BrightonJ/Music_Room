@@ -88,7 +88,9 @@
       "router": {},
       "eas": {
         "projectId": "cff81abf-47fb-4204-a22d-979da4e209f7"
-      }
+      },
+      "googleWebClientId": "366454289403-elqiqam0dpm679a69rddp0vqeafvsqoa.apps.googleusercontent.com",
+      "facebookAppId": "2656671428103276"
     },
     "owner": "musicroomtest42s-team"
   }
