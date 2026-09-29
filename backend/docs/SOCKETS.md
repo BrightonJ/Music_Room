@@ -53,6 +53,9 @@ Every payload contains `eventId`: a client ignores messages for another room.
 | `my_votes` | `{ eventId, votes: { [trackId]: 1 \| -1 } }` |
 | `room_members` | `{ eventId, members: [{ userId, username, deviceId, deviceName, platform, isOwner, hasControl }] }` one entry per connected device |
 | `room_closed` | `{ eventId }` the host deleted the room |
+| `friends_changed` | `{ reason: 'request' \| 'accepted' \| 'declined' \| 'removed', userId, username }` (`userId` / `username`: who did it) sent to both users on their personal channel (`user:<id>`, joined on connection): refresh the friends list |
+| `invitations_changed` | `{ reason: 'invited' \| 'accepted' \| 'declined', eventId, eventName, username, userId }` to the host and the guest (personal channel): refresh the invitations (home) and the invite screen (host) |
+| `events_changed` | `{ reason: 'created' \| 'deleted', eventId }` to everyone for a public room, to the host and invitees for a private one: refresh the rooms list |
 
 `positionMs` is computed by the server when the message is sent: the client adds the time
 elapsed since reception, so the phones do not need a synchronized clock.

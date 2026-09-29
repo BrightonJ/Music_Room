@@ -7,6 +7,7 @@ import ScreenHeader from '@/components/ScreenHeader';
 import { goBack } from '@/lib/navigation';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { RetroScreen } from '@/components/retro';
+import { onFriendsChanged } from '@/lib/userEvents';
 
 type User = { id: number; username: string };
 type FriendRequest = { id: number; requester_id: number; requester_username: string };
@@ -35,6 +36,9 @@ export default function FriendsScreen() {
       load();
     }, [load])
   );
+
+  // Real time: a request received, accepted, declined or a friend removed refreshes the lists
+  useEffect(() => onFriendsChanged(() => load()), [load]);
 
   useEffect(() => {
     const q = query.trim();

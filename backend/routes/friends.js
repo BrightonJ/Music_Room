@@ -4,6 +4,19 @@ const { requireAuth } = require('../middleware/auth');
 const { ClientError } = require('../utils/errors');
 const { parseId, usernameRegex } = require('../utils/validators');
 const { broadcastRoomMembers } = require('../sockets/presence');
+const { notifyUsers } = require('../sockets/ioState');
+
+// Tells both users' devices that their friends data changed (see docs/SOCKETS.md).
+// reason: 'request', 'accepted', 'declined' or 'removed'. The actor is the user who
+// did it: both refresh their lists, only the other one shows a notification.
+async function friendsChanged(userIds, reason, actorId) {
+  notifyUsers(userIds, 'friends_changed', { reason, userId: actorId, username: await usernameOf(actorId) });
+}
+
+async function usernameOf(userId) {
+  const r = await db.query('SELECT username FROM users WHERE id = $1', [userId]);
+  return r.rows[0] ? r.rows[0].username : null;
+}
 
 const router = express.Router();
 
@@ -38,6 +51,7 @@ router.post('/friends/requests', requireAuth, async (req, res) => {
     if (row.requester_id === me) throw new ClientError('Friend request already sent', 409);
     // They already asked me: adding them back accepts their request
     const accepted = await db.query(`UPDATE friendships SET status = 'accepted' WHERE id = $1 RETURNING *`, [row.id]);
+    await friendsChanged([me, other], 'accepted', me);
     return res.json({ ...accepted.rows[0], autoAccepted: true });
   }
 
@@ -48,6 +62,7 @@ router.post('/friends/requests', requireAuth, async (req, res) => {
     [me, other]
   );
   if (result.rows.length === 0) throw new ClientError('Friend request already exists', 409);
+  await friendsChanged([other, me], 'request', me);
   res.status(201).json(result.rows[0]);
 });
 
@@ -70,6 +85,7 @@ router.post('/friends/requests/:id/accept', requireAuth, async (req, res) => {
     [id, req.user.userId]
   );
   if (result.rows.length === 0) throw new ClientError('Request not found', 404);
+  await friendsChanged([result.rows[0].requester_id, req.user.userId], 'accepted', req.user.userId);
   res.json(result.rows[0]);
 });
 
@@ -77,10 +93,11 @@ router.post('/friends/requests/:id/decline', requireAuth, async (req, res) => {
   const id = parseId(req.params.id);
   if (!id) throw new ClientError('Request not found', 404);
   const result = await db.query(
-    `DELETE FROM friendships WHERE id = $1 AND addressee_id = $2 AND status = 'pending' RETURNING id`,
+    `DELETE FROM friendships WHERE id = $1 AND addressee_id = $2 AND status = 'pending' RETURNING id, requester_id`,
     [id, req.user.userId]
   );
   if (result.rows.length === 0) throw new ClientError('Request not found', 404);
+  await friendsChanged([result.rows[0].requester_id, req.user.userId], 'declined', req.user.userId);
   res.json({ message: 'Request declined' });
 });
 
@@ -125,6 +142,7 @@ router.delete('/friends/:userId', requireAuth, async (req, res) => {
     client.release();
   }
   for (const eventId of affectedEvents) broadcastRoomMembers(eventId).catch((err) => console.error(err));
+  await friendsChanged([other, me], 'removed', me);
   res.json({ message: 'Friend removed' });
 });
 

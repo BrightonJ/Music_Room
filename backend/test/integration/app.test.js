@@ -194,6 +194,73 @@ if (!TEST_DB) {
       assert.equal(asStranger.data.last_name, undefined);
     });
 
+    test('friend requests and acceptances are pushed in real time to both users', async () => {
+      const [alice, bob] = [await createUser(), await createUser()];
+      const aliceSession = await login(alice);
+      const bobSession = await login(bob);
+      // No room joined: the personal channel works anywhere in the app
+      const aliceSocket = await connect(aliceSession.token);
+      const bobSocket = await connect(bobSession.token);
+      const next = (socket) => new Promise((resolve) => socket.once('friends_changed', resolve));
+
+      const bobNotified = next(bobSocket);
+      const sent = await api('/friends/requests', { method: 'POST', token: aliceSession.token, body: { username: bob.username } });
+      assert.equal(sent.status, 201);
+      assert.deepEqual(await bobNotified, { reason: 'request', userId: alice.id, username: alice.username });
+
+      const aliceNotified = next(aliceSocket);
+      const accepted = await api(`/friends/requests/${sent.data.id}/accept`, { method: 'POST', token: bobSession.token });
+      assert.equal(accepted.status, 200);
+      assert.deepEqual(await aliceNotified, { reason: 'accepted', userId: bob.id, username: bob.username });
+    });
+
+    test('a declined invitation can be sent again; host and guest are notified live', async () => {
+      const [host, guest] = [await createUser(), await createUser()];
+      await makeFriends(host, guest);
+      const hostSession = await login(host);
+      const guestSession = await login(guest);
+      const hostSocket = await connect(hostSession.token);
+      const guestSocket = await connect(guestSession.token);
+      const next = (socket, name) => new Promise((resolve) => socket.once(name, resolve));
+      const ev = await createEvent(hostSession.token, { name: 'Invite again', isPrivate: true, voteLicense: 'everyone' });
+
+      const invitedLive = next(guestSocket, 'invitations_changed');
+      assert.equal((await api(`/events/${ev.id}/invite`, { method: 'POST', token: hostSession.token, body: { username: guest.username } })).status, 201);
+      assert.equal((await invitedLive).reason, 'invited');
+      const statuses = await api(`/events/${ev.id}/invitations`, { token: hostSession.token });
+      assert.deepEqual(statuses.data.map((i) => [i.username, i.status]), [[guest.username, 'pending']]);
+
+      const invitation = (await api('/invitations', { token: guestSession.token })).data[0];
+      const declinedLive = next(hostSocket, 'invitations_changed');
+      assert.equal((await api(`/invitations/${invitation.id}/decline`, { method: 'POST', token: guestSession.token })).status, 200);
+      const declined = await declinedLive;
+      assert.equal(declined.reason, 'declined');
+      assert.equal(declined.username, guest.username);
+      assert.equal((await api(`/events/${ev.id}/invitations`, { token: hostSession.token })).data.length, 0);
+
+      // Invite again after the decline
+      assert.equal((await api(`/events/${ev.id}/invite`, { method: 'POST', token: hostSession.token, body: { username: guest.username } })).status, 201);
+      assert.equal((await api('/invitations', { token: guestSession.token })).data.length, 1);
+      assert.equal((await api(`/events/${ev.id}/invitations`, { token: guestSession.token })).status, 403);
+    });
+
+    test('rooms lists refresh live: public rooms for everyone, private rooms for their guests only', async () => {
+      const [host, other] = [await createUser(), await createUser()];
+      const hostSession = await login(host);
+      const otherSocket = await connect((await login(other)).token);
+      const received = [];
+      otherSocket.on('events_changed', (e) => received.push(e));
+
+      const pub = await createEvent(hostSession.token, { name: 'Public party', isPrivate: false, voteLicense: 'everyone' });
+      await createEvent(hostSession.token, { name: 'Private party', isPrivate: true, voteLicense: 'everyone' });
+      assert.equal((await api(`/events/${pub.id}`, { method: 'DELETE', token: hostSession.token })).status, 200);
+      await new Promise((r) => setTimeout(r, 150));
+      assert.deepEqual(received, [
+        { reason: 'created', eventId: pub.id },
+        { reason: 'deleted', eventId: pub.id },
+      ]);
+    });
+
     test('removing a device and logging out revoke the token', async () => {
       const user = await createUser();
       const phoneA = await login(user);

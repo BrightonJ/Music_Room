@@ -3,7 +3,7 @@ const db = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { canAccessEvent, hasPlaybackControl, isAcceptedInvitee } = require('../models/events');
 const { areFriends } = require('../models/profiles');
-const { getIO, roomName, socketsInRoom } = require('../sockets/ioState');
+const { getIO, roomName, socketsInRoom, notifyUsers, notifyAll } = require('../sockets/ioState');
 const { withRoomLock } = require('../sockets/roomLock');
 const playback = require('../sockets/playback');
 const { broadcastRoomMembers } = require('../sockets/presence');
@@ -76,7 +76,12 @@ router.post('/events', requireAuth, async (req, res) => {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
     [req.user.userId, input.name, input.isPrivate, input.voteLicense, input.lat, input.lng, input.radius, input.startsAt, input.endsAt]
   );
-  res.status(201).json({ message: 'Room created', event: result.rows[0] });
+  const event = result.rows[0];
+  // Rooms lists refresh live: everyone for a public room, only the host's other devices for a private one
+  const change = { reason: 'created', eventId: event.id };
+  if (event.is_private) notifyUsers([req.user.userId], 'events_changed', change);
+  else notifyAll('events_changed', change);
+  res.status(201).json({ message: 'Room created', event });
 });
 
 router.get('/events', requireAuth, async (req, res) => {
@@ -116,6 +121,9 @@ router.get('/events/:id', requireAuth, async (req, res) => {
 router.delete('/events/:id', requireAuth, async (req, res) => {
   const eventId = eventIdFrom(req);
   await requireOwnedEvent(eventId, req.user.userId, 'Only the host can delete this room');
+  // Read before the cascade deletes them: who must see the room disappear from their lists
+  const before = await db.query('SELECT is_private FROM events WHERE id = $1', [eventId]);
+  const invitees = await db.query('SELECT user_id FROM event_invitations WHERE event_id = $1', [eventId]);
   await withRoomLock(eventId, async () => {
     playback.stopPlayback(eventId);
     await db.query('DELETE FROM events WHERE id = $1', [eventId]);
@@ -125,6 +133,9 @@ router.delete('/events/:id', requireAuth, async (req, res) => {
     io.to(roomName(eventId)).emit('room_closed', { eventId });
     io.in(roomName(eventId)).socketsLeave(roomName(eventId));
   }
+  const change = { reason: 'deleted', eventId };
+  if (before.rows[0] && !before.rows[0].is_private) notifyAll('events_changed', change);
+  else notifyUsers([req.user.userId, ...invitees.rows.map((r) => r.user_id)], 'events_changed', change);
   res.json({ message: 'Room deleted' });
 });
 
@@ -139,13 +150,36 @@ router.post('/events/:id/invite', requireAuth, async (req, res) => {
   if (targetId === req.user.userId) throw new ClientError('You are the host of this room');
   if (!(await areFriends(req.user.userId, targetId))) throw new ClientError('You can only invite friends', 403);
 
-  await db.query(
+  const inserted = await db.query(
     `INSERT INTO event_invitations (event_id, user_id, invited_by, status) VALUES ($1, $2, $3, 'pending')
      ON CONFLICT (event_id, user_id) DO UPDATE SET invited_by = EXCLUDED.invited_by
-     WHERE event_invitations.status <> 'accepted'`,
+     WHERE event_invitations.status <> 'accepted'
+     RETURNING status`,
     [eventId, targetId, req.user.userId]
   );
+  // No row returned: the friend had already accepted, nothing to notify
+  if (inserted.rows.length > 0) {
+    const info = await db.query(
+      'SELECT e.name, u.username FROM events e JOIN users u ON u.id = $2 WHERE e.id = $1',
+      [eventId, req.user.userId]
+    );
+    const { name, username: host } = info.rows[0];
+    notifyUsers([targetId, req.user.userId], 'invitations_changed', { reason: 'invited', eventId, eventName: name, username: host, userId: targetId });
+  }
   res.status(201).json({ message: 'Invitation sent' });
+});
+
+// Invitation status of each friend for this room (host only): the invite screen
+// shows who is invited, who joined, and lets the host invite again after a decline
+router.get('/events/:id/invitations', requireAuth, async (req, res) => {
+  const eventId = eventIdFrom(req);
+  await requireOwnedEvent(eventId, req.user.userId, 'Only the host can see the invitations');
+  const result = await db.query(
+    `SELECT ei.user_id, u.username, ei.status FROM event_invitations ei JOIN users u ON u.id = ei.user_id
+     WHERE ei.event_id = $1 ORDER BY u.username`,
+    [eventId]
+  );
+  res.json(result.rows);
 });
 
 // ---------- Music Control Delegation ----------

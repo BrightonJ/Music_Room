@@ -1,17 +1,20 @@
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { roomStyles as styles } from './roomStyles';
-import type { Friend } from './types';
+import type { Friend, InvitationStatus } from './types';
 
 type Props = {
   visible: boolean;
   friends: Friend[];
-  invited: string[];
+  /** Status per friend id; no entry: not invited (or declined, so they can be invited again) */
+  invitations: Record<number, InvitationStatus>;
   message: string;
-  onInvite: (username: string) => void;
+  onInvite: (friend: Friend) => void;
   onClose: () => void;
 };
 
-export default function InviteFriendsModal({ visible, friends, invited, message, onInvite, onClose }: Props) {
+const statusLabel: Record<InvitationStatus, string> = { pending: 'Invited', accepted: 'Joined' };
+
+export default function InviteFriendsModal({ visible, friends, invitations, message, onInvite, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.modalOverlay}>
@@ -23,16 +26,17 @@ export default function InviteFriendsModal({ visible, friends, invited, message,
               <Text style={styles.modalSubtitle}>Add friends from the Friends screen to invite them here.</Text>
             ) : (
               friends.map((friend) => {
-                const done = invited.includes(friend.username);
+                const status = invitations[friend.id];
                 return (
                   <View key={friend.id} style={styles.memberRow}>
                     <Text style={styles.memberName}>{friend.username}</Text>
                     <TouchableOpacity
-                      style={done ? styles.declineButton : styles.acceptButton}
-                      onPress={() => onInvite(friend.username)}
-                      disabled={done}
+                      style={status ? styles.declineButton : styles.acceptButton}
+                      onPress={() => onInvite(friend)}
+                      disabled={!!status}
+                      accessibilityState={{ disabled: !!status }}
                     >
-                      <Text style={done ? styles.declineButtonText : styles.acceptButtonText}>{done ? 'Invited' : 'Invite'}</Text>
+                      <Text style={status ? styles.declineButtonText : styles.acceptButtonText}>{status ? statusLabel[status] : 'Invite'}</Text>
                     </TouchableOpacity>
                   </View>
                 );

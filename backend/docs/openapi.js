@@ -55,6 +55,9 @@ Every client event takes an acknowledgement callback answering \`{ ok: true, ...
 | \`my_votes\` | \`{ eventId, votes: { [trackId]: 1 \\| -1 } }\` |
 | \`room_members\` | \`{ eventId, members: Member[] }\` (one entry per connected device) |
 | \`room_closed\` | \`{ eventId }\` |
+| \`friends_changed\` | \`{ reason: request \\| accepted \\| declined \\| removed, userId, username }\` (userId: who did it; personal channel, not tied to a room) |
+| \`invitations_changed\` | \`{ reason: invited \\| accepted \\| declined, eventId, eventName, username, userId }\` (host and guest) |
+| \`events_changed\` | \`{ reason: created \\| deleted, eventId }\` (rooms lists) |
 
 See backend/docs/SOCKETS.md for details.
 `;
@@ -330,6 +333,17 @@ module.exports = {
     },
     '/events/{id}/invite': {
       post: op({ tag: 'Events', summary: 'Invite a friend (host only)', params: [pathId('id', 'Event id')], requestBody: body({ type: 'object', required: ['username'], properties: { username: { type: 'string' } } }), responses: { 201: message(), 403: error('Not the host / not a friend'), 404: error('Not found') } }),
+    },
+    '/events/{id}/invitations': {
+      get: op({
+        tag: 'Events',
+        summary: 'Invitation status of each invited friend (host only)',
+        params: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          200: json({ type: 'array', items: { type: 'object', properties: { user_id: { type: 'integer' }, username: { type: 'string' }, status: { type: 'string', enum: ['pending', 'accepted'] } } } }),
+          403: error('Not the host'),
+        },
+      }),
     },
     '/events/{id}/delegations': {
       get: op({ tag: 'Delegation', summary: 'Devices allowed to control this room', params: [pathId('id', 'Event id')], responses: { 200: json({ type: 'array', items: ref('Delegation') }) } }),

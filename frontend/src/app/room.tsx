@@ -13,7 +13,7 @@ import MemberProfileModal from '@/components/room/MemberProfileModal';
 import LeaveRoomModal from '@/components/room/LeaveRoomModal';
 import RoomClosedModal from '@/components/room/RoomClosedModal';
 import { roomStyles } from '@/components/room/roomStyles';
-import type { DelegationCandidate, Friend, PublicProfile, RoomEvent, SearchResult } from '@/components/room/types';
+import type { DelegationCandidate, Friend, InvitationStatus, PublicProfile, RoomEvent, SearchResult } from '@/components/room/types';
 import { useRoom } from '@/hooks/useRoom';
 import { useRoomAudio } from '@/hooks/useRoomAudio';
 import { apiFetch, errorMessage } from '@/lib/api';
@@ -21,6 +21,7 @@ import { clampVolume, currentPositionMs, nextVoteValue } from '@/lib/playback';
 import { getFreshPosition } from '@/lib/location';
 import { formatDateTime } from '@/lib/dates';
 import { RetroScreen } from '@/components/retro';
+import { onUserEvent } from '@/lib/userEvents';
 
 export default function RoomScreen() {
   const router = useRouter();
@@ -45,7 +46,8 @@ export default function RoomScreen() {
   const [busyDeviceId, setBusyDeviceId] = useState<number | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [invited, setInvited] = useState<string[]>([]);
+  // Invitation status per friend (user id), from the server: 'pending' or 'accepted'
+  const [invitations, setInvitations] = useState<Record<number, InvitationStatus>>({});
   const [inviteMessage, setInviteMessage] = useState('');
   const [profileVisible, setProfileVisible] = useState(false);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
@@ -222,21 +224,38 @@ export default function RoomScreen() {
   };
 
   // ---------- invitations & profiles ----------
+  const loadInvitations = useCallback(async () => {
+    const list = await apiFetch<{ user_id: number; status: InvitationStatus }[]>(`/events/${roomId}/invitations`);
+    setInvitations(Object.fromEntries(list.map((i) => [i.user_id, i.status])));
+  }, [roomId]);
+
   const openInvite = async () => {
     setInviteMessage('');
     setShowInvite(true);
     try {
-      setFriends(await apiFetch<Friend[]>('/friends'));
+      const [friendList] = await Promise.all([apiFetch<Friend[]>('/friends'), loadInvitations()]);
+      setFriends(friendList);
     } catch (err) {
       setInviteMessage(errorMessage(err));
     }
   };
 
-  const invite = async (username: string) => {
+  // Real time: a guest who accepts or declines updates the invite screen (a declined friend can be invited again)
+  useEffect(
+    () =>
+      onUserEvent('invitations_changed', (change) => {
+        if (change.eventId !== roomId || !isOwner) return;
+        loadInvitations().catch(() => {});
+        if (change.reason !== 'invited') setInviteMessage(`${change.username} ${change.reason} the invitation`);
+      }),
+    [roomId, isOwner, loadInvitations]
+  );
+
+  const invite = async (friend: Friend) => {
     try {
-      await apiFetch(`/events/${roomId}/invite`, { method: 'POST', body: { username } });
-      setInvited((list) => [...list, username]);
-      setInviteMessage(`${username} is invited`);
+      await apiFetch(`/events/${roomId}/invite`, { method: 'POST', body: { username: friend.username } });
+      setInvitations((current) => ({ ...current, [friend.id]: 'pending' }));
+      setInviteMessage(`${friend.username} is invited`);
     } catch (err) {
       setInviteMessage(errorMessage(err));
     }
@@ -370,7 +389,7 @@ export default function RoomScreen() {
       <InviteFriendsModal
         visible={showInvite}
         friends={friends}
-        invited={invited}
+        invitations={invitations}
         message={inviteMessage}
         onInvite={invite}
         onClose={() => setShowInvite(false)}

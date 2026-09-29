@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -19,6 +19,7 @@ import {
 } from '@/components/retro';
 import { apiFetch, errorMessage } from '@/lib/api';
 import { storage } from '@/lib/storage';
+import { onUserEvent } from '@/lib/userEvents';
 
 type EventSummary = {
   id: number;
@@ -63,6 +64,16 @@ export default function HomeScreen() {
       load();
     }, [load])
   );
+
+  // Real time: rooms created / deleted and invitations received or answered refresh the lists
+  useEffect(() => {
+    const offEvents = onUserEvent('events_changed', () => load());
+    const offInvitations = onUserEvent('invitations_changed', () => load());
+    return () => {
+      offEvents();
+      offInvitations();
+    };
+  }, [load]);
 
   const answerInvitation = async (invitation: Invitation, accept: boolean) => {
     try {

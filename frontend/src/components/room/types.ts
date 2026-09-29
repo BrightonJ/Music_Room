@@ -78,6 +78,9 @@ export type SearchResult = {
 
 export type Friend = { id: number; username: string };
 
+/** A friend's invitation to a room: waiting for an answer, or joined */
+export type InvitationStatus = 'pending' | 'accepted';
+
 export type PublicProfile = {
   id: number;
   username: string;

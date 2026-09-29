@@ -1,6 +1,6 @@
 const { Server } = require('socket.io');
 const db = require('../config/db');
-const { setIO, roomName } = require('./ioState');
+const { setIO, roomName, userRoomName } = require('./ioState');
 const { withRoomLock } = require('./roomLock');
 const playback = require('./playback');
 const { broadcastRoomMembers } = require('./presence');
@@ -66,6 +66,8 @@ function initSocket(server) {
         metadata,
       });
     log('socket.connect');
+    // Personal channel for notifications that are not tied to a room (friends...)
+    socket.join(userRoomName(socket.data.userId));
 
     // Every event answers through an acknowledgement: { ok: true, ... } or { ok: false, error }
     const on = (name, handler) => {
