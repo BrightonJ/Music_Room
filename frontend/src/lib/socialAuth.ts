@@ -1,8 +1,26 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { apiFetch } from './api';
 
-export type SocialProvider = 'google' | 'facebook';
+// The Google Sign-In SDK is a native module: they exist in the app builds
+// (EAS / expo run) but NOT in Expo Go. They are loaded only when a button is
+// pressed, so the rest of the app keeps working in Expo Go.
+const IN_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+function requireNative<T>(load: () => T, provider: string): T {
+  if (IN_EXPO_GO) {
+    throw new Error(`${provider} sign-in needs the Music Room app build, it does not work in Expo Go. Use your email and password here.`);
+  }
+  return load();
+}
+
+const googleSdk = () =>
+  requireNative(
+    () => require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin'),
+    'Google'
+  );
+
+// Only Google is supported (the subject asks for Google OR Facebook)
+export type SocialProvider = 'google';
 
 export type SocialSession = {
   token: string;
@@ -14,17 +32,19 @@ const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
 let googleConfigured = false;
 function configureGoogle() {
-  if (googleConfigured) return;
+  const { GoogleSignin } = googleSdk();
+  if (googleConfigured) return GoogleSignin;
   if (!GOOGLE_WEB_CLIENT_ID) throw new Error('Google sign-in is not configured');
   GoogleSignin.configure({
     webClientId: GOOGLE_WEB_CLIENT_ID,
     offlineAccess: false,
   });
   googleConfigured = true;
+  return GoogleSignin;
 }
 
 async function loginWithGoogle(): Promise<SocialSession> {
-  configureGoogle();
+  const GoogleSignin = configureGoogle();
   await GoogleSignin.hasPlayServices();
   const response = await GoogleSignin.signIn();
 
@@ -41,22 +61,7 @@ async function loginWithGoogle(): Promise<SocialSession> {
   });
 }
 
-async function loginWithFacebook(): Promise<SocialSession> {
-  const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
-  if (result.isCancelled) throw new Error('Sign-in cancelled');
-
-  const data = await AccessToken.getCurrentAccessToken();
-  if (!data || !data.accessToken) {
-    throw new Error('Facebook did not return an access_token');
-  }
-
-  return apiFetch<SocialSession>('/auth/facebook', {
-    method: 'POST',
-    auth: false,
-    body: { accessToken: data.accessToken },
-  });
-}
-
 export async function startSocialLogin(provider: SocialProvider): Promise<SocialSession> {
-  return provider === 'google' ? loginWithGoogle() : loginWithFacebook();
+  if (provider !== 'google') throw new Error('Unsupported sign-in provider');
+  return loginWithGoogle();
 }

@@ -66,19 +66,7 @@
         }
       ],
       "expo-asset",
-      "@react-native-google-signin/google-signin",
-      [
-        "react-native-fbsdk-next",
-        {
-          "appID": "2656671428103276",
-          "clientToken": "6d317972f46bde53353b1f8cac2e964a",
-          "displayName": "Music Room",
-          "scheme": "fb2656671428103276",
-          "advertiserIDCollectionEnabled": false,
-          "autoLogAppEventsEnabled": false,
-          "isAutoInitEnabled": true
-        }
-      ]
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -89,8 +77,7 @@
       "eas": {
         "projectId": "cff81abf-47fb-4204-a22d-979da4e209f7"
       },
-      "googleWebClientId": "366454289403-elqiqam0dpm679a69rddp0vqeafvsqoa.apps.googleusercontent.com",
-      "facebookAppId": "2656671428103276"
+      "googleWebClientId": "366454289403-elqiqam0dpm679a69rddp0vqeafvsqoa.apps.googleusercontent.com"
     },
     "owner": "musicroomtest42s-team"
   }

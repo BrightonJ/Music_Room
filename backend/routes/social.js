@@ -4,14 +4,14 @@ const { requireAuth } = require('../middleware/auth');
 const { loginLimiter } = require('../utils/rateLimiters');
 const { ClientError } = require('../utils/errors');
 const { readDeviceInfo, openSession } = require('../services/session');
-const { verifyGoogleToken, verifyFacebookToken } = require('../services/social');
+const { verifyGoogleToken } = require('../services/social');
 
 const router = express.Router();
 
-// Google/Facebook id_token (or access_token) → unified profile shape
+// Only Google sign-in is supported (the subject asks for Google OR Facebook).
+// Google id_token → unified profile shape
 async function verifyToken(provider, token) {
   if (provider === 'google') return verifyGoogleToken(token);
-  if (provider === 'facebook') return verifyFacebookToken(token);
   throw new ClientError('Unsupported provider', 400);
 }
 
@@ -33,7 +33,7 @@ async function generateUsername(email, firstName) {
 
 // Create a brand new user from a social profile (no password)
 async function createSocialUser(provider, profile) {
-  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+  const column = 'google_id';
   const username = await generateUsername(profile.email, profile.firstName);
   const email = profile.email || `${provider}_${profile.providerId}@social.musicroom.local`;
   const result = await db.query(
@@ -47,7 +47,7 @@ async function createSocialUser(provider, profile) {
 
 // Find the user matching the social profile: by provider id first, then by email
 async function findUser(provider, profile) {
-  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+  const column = 'google_id';
   const byProvider = await db.query(
     `SELECT id, email, username, ${column} AS provider_id FROM users WHERE ${column} = $1`,
     [profile.providerId]
@@ -66,13 +66,12 @@ async function findUser(provider, profile) {
 
 // Link the provider id to an existing account (same email, first time)
 async function linkProvider(userId, provider, providerId) {
-  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+  const column = 'google_id';
   await db.query(`UPDATE users SET ${column} = $1 WHERE id = $2`, [providerId, userId]);
 }
 
 // ---------------------------------------------------------------------------
 // POST /api/auth/google    { idToken }
-// POST /api/auth/facebook  { accessToken }
 // Login OR signup in a single call. On first login, auto-link by email.
 // ---------------------------------------------------------------------------
 async function socialLogin(provider, token, req, res) {
@@ -108,22 +107,14 @@ router.post('/google', loginLimiter, (req, res, next) => {
   socialLogin('google', idToken, req, res).catch(next);
 });
 
-router.post('/facebook', loginLimiter, (req, res, next) => {
-  const { accessToken } = req.body || {};
-  if (typeof accessToken !== 'string' || !accessToken) {
-    return next(new ClientError('accessToken is required', 400));
-  }
-  socialLogin('facebook', accessToken, req, res).catch(next);
-});
 
 // ---------------------------------------------------------------------------
 // POST /api/auth/link/google    { idToken }        (auth required)
-// POST /api/auth/link/facebook  { accessToken }    (auth required)
 // Attach a social account to the currently logged-in user.
 // ---------------------------------------------------------------------------
 async function socialLink(provider, token, req, res) {
   const profile = await verifyToken(provider, token);
-  const column = provider === 'google' ? 'google_id' : 'facebook_id';
+  const column = 'google_id';
 
   // Prevent linking a provider id already attached to someone else
   const conflict = await db.query(
@@ -144,10 +135,5 @@ router.post('/link/google', requireAuth, (req, res, next) => {
   socialLink('google', idToken, req, res).catch(next);
 });
 
-router.post('/link/facebook', requireAuth, (req, res, next) => {
-  const { accessToken } = req.body || {};
-  if (typeof accessToken !== 'string' || !accessToken) return next(new ClientError('accessToken is required', 400));
-  socialLink('facebook', accessToken, req, res).catch(next);
-});
 
 module.exports = router;

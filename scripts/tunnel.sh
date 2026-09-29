@@ -61,14 +61,12 @@ with open('frontend/eas.json') as f:
     data = json.load(f)
 env = data['build']['preview'].setdefault('env', {})
 env['EXPO_PUBLIC_API_URL'] = url
-# Keep the two public OAuth IDs in sync with app.json extra
+# Keep the public Google OAuth ID in sync with app.json extra
 with open('frontend/app.json') as f:
     app = json.load(f)
 extra = app.get('expo', {}).get('extra', {})
 if extra.get('googleWebClientId'):
     env['EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'] = extra['googleWebClientId']
-if extra.get('facebookAppId'):
-    env['EXPO_PUBLIC_FACEBOOK_APP_ID'] = extra['facebookAppId']
 with open('frontend/eas.json', 'w') as f:
     json.dump(data, f, indent=2)
 print('  -> frontend/eas.json updated')
