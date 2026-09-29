@@ -7,7 +7,7 @@ export
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup env install eas-setup db-setup db-up db-down db-init db-test \
+.PHONY: help setup env install eas-setup build-android db-setup db-up db-down db-init db-test \
         back front start test test-back test-integration test-front \
         clean reset bench-seed bench-sockets bench-rest
 
@@ -21,6 +21,7 @@ help:
 	@echo ""
 	@echo "  env         regenerate backend/.env and frontend/.env from the root .env"
 	@echo "  eas-setup   configure EAS Build for the frontend (creates eas.json)"
+	@echo "  build-android  build a preview APK via EAS (uses npx eas-cli)"
 	@echo "  install     install backend + frontend npm dependencies"
 	@echo ""
 	@echo "  db-setup    start PostgreSQL and (re)create the schema — DELETES ALL DATA"
@@ -63,6 +64,9 @@ env:
 
 eas-setup:
 	cd frontend && npx eas build:configure
+
+build-android:
+	@bash scripts/build-android.sh
 
 db-setup: db-up db-init
 

@@ -65,7 +65,20 @@
           "locationWhenInUsePermission": "Music Room uses your location to check that you are at the event when you vote or create an on-site room."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "@react-native-google-signin/google-signin",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "2656671428103276",
+          "clientToken": "6d317972f46bde53353b1f8cac2e964a",
+          "displayName": "Music Room",
+          "scheme": "fb2656671428103276",
+          "advertiserIDCollectionEnabled": false,
+          "autoLogAppEventsEnabled": false,
+          "isAutoInitEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
