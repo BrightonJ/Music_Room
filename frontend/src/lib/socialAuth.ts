@@ -26,6 +26,8 @@ export type SocialSession = {
   token: string;
   deviceId: number;
   user: { id: number; email: string; username: string };
+  /** First Google sign-in: username and date of birth still to be chosen */
+  profileIncomplete?: boolean;
 };
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;

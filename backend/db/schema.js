@@ -15,6 +15,9 @@ const STATEMENTS = [
     last_name VARCHAR(100),
     birth_date DATE,
     is_verified BOOLEAN NOT NULL DEFAULT false,
+    -- false for accounts created by Google sign-in until the user chose a username
+    -- and gave the missing fields (date of birth...) on the "complete your profile" screen
+    profile_completed BOOLEAN NOT NULL DEFAULT true,
     verification_token_hash VARCHAR(64),
     verification_expires_at TIMESTAMPTZ,
     reset_token_hash VARCHAR(64),

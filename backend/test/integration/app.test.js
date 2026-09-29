@@ -171,6 +171,33 @@ if (!TEST_DB) {
       assert.equal(clash.status, 409);
     });
 
+    test('a Google account completes its profile: username, names and date of birth', async () => {
+      const user = await createUser();
+      const other = await createUser();
+      // What a Google sign-up leaves behind: generated username, no date of birth
+      await pool.query('UPDATE users SET profile_completed = false, birth_date = NULL WHERE id = $1', [user.id]);
+      const { token } = await login(user);
+
+      assert.equal((await api('/profile', { token })).data.profile_completed, false);
+
+      const invalid = await api('/profile/complete', { method: 'POST', token, body: { username: 'no spaces!', firstName: 'A', lastName: 'B', birthDate: '2000-01-01' } });
+      assert.equal(invalid.status, 400);
+      const noBirthDate = await api('/profile/complete', { method: 'POST', token, body: { username: 'jen_music', firstName: 'A', lastName: 'B' } });
+      assert.equal(noBirthDate.status, 400);
+      const taken = await api('/profile/complete', {
+        method: 'POST',
+        token,
+        body: { username: other.username.toUpperCase(), firstName: 'A', lastName: 'B', birthDate: '2000-01-01' },
+      });
+      assert.equal(taken.status, 409);
+
+      const ok = await api('/profile/complete', { method: 'POST', token, body: { username: 'jen_music', firstName: 'Jen', lastName: 'Doe', birthDate: '2001-06-30' } });
+      assert.equal(ok.status, 200);
+      assert.equal(ok.data.username, 'jen_music');
+      assert.equal(ok.data.birth_date, '2001-06-30');
+      assert.equal(ok.data.profile_completed, true);
+    });
+
     test('birth date comes back exactly as stored (no time zone shift)', async () => {
       const user = await createUser();
       const { token } = await login(user);

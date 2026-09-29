@@ -7,7 +7,7 @@ const { areFriends, filterProfileForViewer } = require('../models/profiles');
 
 const router = express.Router();
 
-const PROFILE_COLUMNS = `id, username, email, first_name, last_name, birth_date, privacy_settings, music_preferences,
+const PROFILE_COLUMNS = `id, username, email, first_name, last_name, birth_date, privacy_settings, music_preferences, profile_completed,
   (password IS NOT NULL) AS has_password, (google_id IS NOT NULL) AS google_linked`;
 
 router.get('/profile', requireAuth, async (req, res) => {
@@ -71,6 +71,34 @@ router.put('/profile', requireAuth, async (req, res) => {
     values
   );
   res.json(result.rows[0]);
+});
+
+// "Complete your profile" (accounts created with Google sign-in): the user
+// chooses a username and gives the fields Google did not share.
+router.post('/profile/complete', requireAuth, async (req, res) => {
+  const body = req.body || {};
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
+  if (!usernameRegex.test(username)) throw new ClientError('Username: 3-20 characters, letters, digits or underscore');
+  const firstName = cleanString(body.firstName, 100);
+  const lastName = cleanString(body.lastName, 100);
+  if (!firstName) throw new ClientError('First name must be 1 to 100 characters');
+  if (!lastName) throw new ClientError('Last name must be 1 to 100 characters');
+  if (!isValidBirthDate(body.birthDate)) throw new ClientError('Invalid date of birth');
+
+  const taken = await db.query('SELECT 1 FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2', [username, req.user.userId]);
+  if (taken.rows.length > 0) throw new ClientError('Username already taken', 409);
+
+  try {
+    const result = await db.query(
+      `UPDATE users SET username = $1, first_name = $2, last_name = $3, birth_date = $4, profile_completed = true
+       WHERE id = $5 RETURNING ${PROFILE_COLUMNS}`,
+      [username, firstName, lastName, body.birthDate, req.user.userId]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') throw new ClientError('Username already taken', 409);
+    throw err;
+  }
 });
 
 router.get('/users/:username/profile', requireAuth, async (req, res) => {

@@ -24,40 +24,56 @@ async function generateUsername(email, firstName) {
   for (let i = 0; i < 5; i += 1) {
     const suffix = Math.floor(Math.random() * 9000 + 1000);
     const candidate = `${base}${suffix}`.slice(0, 20);
-    const existing = await db.query('SELECT 1 FROM users WHERE username = $1', [candidate]);
+    const existing = await db.query('SELECT 1 FROM users WHERE LOWER(username) = LOWER($1)', [candidate]);
     if (existing.rows.length === 0) return candidate;
   }
   // Extremely unlikely fallback
   return `user${Date.now().toString().slice(-10)}`.slice(0, 20);
 }
 
-// Create a brand new user from a social profile (no password)
+// Only an email the provider has verified can be trusted: it is used to find
+// (and link) an existing account, so an unverified one could hijack it.
+const trustedEmail = (profile) => (profile.email && profile.emailVerified ? profile.email.trim().toLowerCase() : null);
+
+// Create a brand new user from a social profile (no password). The username is
+// generated and the date of birth is unknown: the profile stays "incomplete"
+// until the user fills the "complete your profile" screen.
 async function createSocialUser(provider, profile) {
   const column = 'google_id';
-  const username = await generateUsername(profile.email, profile.firstName);
-  const email = profile.email || `${provider}_${profile.providerId}@social.musicroom.local`;
-  const result = await db.query(
-    `INSERT INTO users (email, username, first_name, last_name, ${column}, is_verified)
-     VALUES ($1, $2, $3, $4, $5, true)
-     RETURNING id, email, username`,
-    [email, username, profile.firstName, profile.lastName, profile.providerId]
-  );
-  return result.rows[0];
+  const email = trustedEmail(profile) || `${provider}_${profile.providerId}@social.musicroom.local`;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const username = await generateUsername(email, profile.firstName);
+    try {
+      const result = await db.query(
+        `INSERT INTO users (email, username, first_name, last_name, ${column}, is_verified, profile_completed)
+         VALUES ($1, $2, $3, $4, $5, true, false)
+         RETURNING id, email, username, profile_completed`,
+        [email, username, profile.firstName, profile.lastName, profile.providerId]
+      );
+      return result.rows[0];
+    } catch (err) {
+      // Two sign-ups picked the same generated username at the same time: try another one
+      if (err.code === '23505' && String(err.constraint).includes('username')) continue;
+      throw err;
+    }
+  }
+  throw new Error('Could not generate a unique username');
 }
 
 // Find the user matching the social profile: by provider id first, then by email
 async function findUser(provider, profile) {
   const column = 'google_id';
   const byProvider = await db.query(
-    `SELECT id, email, username, ${column} AS provider_id FROM users WHERE ${column} = $1`,
+    `SELECT id, email, username, profile_completed, ${column} AS provider_id FROM users WHERE ${column} = $1`,
     [profile.providerId]
   );
   if (byProvider.rows.length > 0) return { user: byProvider.rows[0], linked: true };
 
-  if (profile.email) {
+  const email = trustedEmail(profile);
+  if (email) {
     const byEmail = await db.query(
-      `SELECT id, email, username, ${column} AS provider_id FROM users WHERE email = $1`,
-      [profile.email]
+      `SELECT id, email, username, profile_completed, ${column} AS provider_id FROM users WHERE email = $1`,
+      [email]
     );
     if (byEmail.rows.length > 0) return { user: byEmail.rows[0], linked: false };
   }
@@ -85,7 +101,7 @@ async function socialLogin(provider, token, req, res) {
   if (!finalUser) {
     finalUser = await createSocialUser(provider, profile);
   } else if (!linked) {
-    // Same email, account created the classic way → link silently
+    // Same VERIFIED email, account created the classic way → link silently
     await linkProvider(finalUser.id, provider, profile.providerId);
   }
 
@@ -96,6 +112,8 @@ async function socialLogin(provider, token, req, res) {
     token: session.token,
     deviceId: session.deviceId,
     user: { id: finalUser.id, email: finalUser.email, username: finalUser.username },
+    // true: the app shows the "complete your profile" screen before the rooms
+    profileIncomplete: !finalUser.profile_completed,
   });
 }
 

@@ -105,6 +105,7 @@ module.exports = {
           privacy_settings: { type: 'object', additionalProperties: ref('PrivacyLevel') },
           has_password: { type: 'boolean' },
           google_linked: { type: 'boolean' },
+          profile_completed: { type: 'boolean', description: 'false for a Google account until POST /profile/complete' },
         },
       },
       PublicProfile: {
@@ -273,6 +274,35 @@ module.exports = {
         },
       }),
     },
+    '/auth/google': {
+      post: op({
+        tag: 'Auth',
+        summary: 'Log in or sign up with a Google id_token (an existing account is linked only if Google verified the email)',
+        auth: false,
+        params: [{ $ref: '#/components/parameters/XDeviceId' }],
+        requestBody: body({ type: 'object', required: ['idToken'], properties: { idToken: { type: 'string' } } }),
+        responses: {
+          200: json({
+            type: 'object',
+            properties: {
+              token: { type: 'string' },
+              deviceId: { type: 'integer' },
+              user: ref('UserSummary'),
+              profileIncomplete: { type: 'boolean', description: 'true: show the "complete your profile" screen' },
+            },
+          }),
+          401: error('Invalid or expired token'),
+        },
+      }),
+    },
+    '/auth/link/google': {
+      post: op({
+        tag: 'Auth',
+        summary: 'Link a Google account to the logged-in user',
+        requestBody: body({ type: 'object', required: ['idToken'], properties: { idToken: { type: 'string' } } }),
+        responses: { 200: message(), 401: error('Invalid or expired token'), 409: error('Google account already linked to another user') },
+      }),
+    },
     '/logout': { post: op({ tag: 'Auth', summary: 'Revoke the session of this device', responses: { 200: message() } }) },
     '/forgot-password': {
       post: op({ tag: 'Auth', summary: 'Send a password reset email', auth: false, requestBody: body({ type: 'object', properties: { email: { type: 'string' } } }), responses: { 200: message() } }),
@@ -286,6 +316,23 @@ module.exports = {
         params: [{ name: 'token', in: 'path', required: true, schema: { type: 'string' } }],
         requestBody: body({ type: 'object', required: ['newPassword'], properties: { newPassword: { type: 'string' } } }),
         responses: { 200: message(), 400: error('Invalid or expired link / weak password') },
+      }),
+    },
+    '/profile/complete': {
+      post: op({
+        tag: 'Profile',
+        summary: 'Complete a Google profile: choose a username, confirm the names, give the date of birth',
+        requestBody: body({
+          type: 'object',
+          required: ['username', 'firstName', 'lastName', 'birthDate'],
+          properties: {
+            username: { type: 'string', pattern: '^[A-Za-z0-9_]{3,20}$' },
+            firstName: { type: 'string' },
+            lastName: { type: 'string' },
+            birthDate: { type: 'string', format: 'date' },
+          },
+        }),
+        responses: { 200: json(ref('Profile')), 400: error('Invalid data'), 409: error('Username already taken') },
       }),
     },
     '/profile': {

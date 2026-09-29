@@ -48,9 +48,18 @@ export default function AuthScreen() {
 
   // Already logged in: go straight to the rooms (an invalid token is caught by the 401 handler)
   useEffect(() => {
-    storage.getToken().then((token) => {
-      if (token) router.replace('/home');
-      else setCheckingSession(false);
+    storage.getToken().then(async (token) => {
+      if (!token) {
+        setCheckingSession(false);
+        return;
+      }
+      // A Google account that left before completing its profile comes back to that screen
+      try {
+        const profile = await apiFetch<{ profile_completed: boolean }>('/profile');
+        router.replace(profile.profile_completed === false ? '/complete-profile' : '/home');
+      } catch {
+        router.replace('/home');
+      }
     });
   }, [router]);
 
@@ -129,7 +138,7 @@ export default function AuthScreen() {
     try {
       const session = await startSocialLogin(provider);
       await storage.saveSession(session.token, session.user.id);
-      router.replace('/home');
+      router.replace(session.profileIncomplete ? '/complete-profile' : '/home');
     } catch (err) {
       setMessage({ type: 'error', text: errorMessage(err) });
     } finally {
