@@ -7,7 +7,7 @@ export
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup env install tunnel eas-setup build-android db-setup db-up db-down db-init db-test \
+.PHONY: help setup env install tunnel kill eas-setup build-android db-setup db-up db-down db-init db-test \
         back front start test test-back test-integration test-front \
         clean reset bench-seed bench-sockets bench-rest
 
@@ -22,6 +22,7 @@ help:
 	@echo "  env         regenerate backend/.env and frontend/.env from the root .env"
 	@echo "  eas-setup   configure EAS Build for the frontend (creates eas.json)"
 	@echo "  build-android  build a preview APK via EAS (uses npx eas-cli)"
+	@echo "  kill          kill leftover node/cloudflared/expo processes"
 	@echo "  tunnel        start cloudflared, auto-update frontend/.env and eas.json"
 	@echo "  install     install backend + frontend npm dependencies"
 	@echo ""
@@ -71,6 +72,12 @@ build-android:
 
 tunnel:
 	@bash scripts/tunnel.sh
+
+kill:
+	-@pkill -f "node server.js" 2>/dev/null || true
+	-@pkill -f "cloudflared tunnel" 2>/dev/null || true
+	-@pkill -f "expo start" 2>/dev/null || true
+	@echo "✅ Leftover processes killed."
 
 db-setup: db-up db-init
 
