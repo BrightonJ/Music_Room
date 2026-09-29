@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CardToneCycle, Colors, Layout, Space } from '@/constants/theme';
@@ -95,12 +95,19 @@ export default function HomeScreen() {
     router.replace('/');
   };
 
+  const confirmLogout = () => {
+    Alert.alert('Log out', 'Do you really want to log out of Music Room on this phone?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: logout },
+    ]);
+  };
+
   return (
     <RetroScreen edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <RetroLink title="Friends" onPress={() => router.push('/friends')} />
         <RetroLink title="Profile" onPress={() => router.push('/profile')} />
-        <RetroLink title="Log out" onPress={logout} color={Colors.retro.danger} />
+        <RetroLink title="Log out" onPress={confirmLogout} color={Colors.retro.danger} />
       </View>
 
       {loading ? (
